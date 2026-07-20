@@ -206,9 +206,10 @@
 (function(){
   // ========== AUDIO & SETTINGS ==========
   let soundOn   = localStorage.getItem('bg_sound')  !== '0';
-  let slideMode = localStorage.getItem('bg_slide')  !== '0'; // touch-drag on D-pad
+  let slideMode = localStorage.getItem('bg_slide')  !== '0'; // touch-drag L/R only
   let ghostOn   = localStorage.getItem('bg_ghost')  !== '0'; // Tetris ghost piece
   let holdRepeat= localStorage.getItem('bg_hold')   !== '0'; // classic hold-to-repeat
+  let greenScreen = localStorage.getItem('bg_green') === '1'; // pure green LCD
   const audioCtx = window.AudioContext ? new AudioContext() : null;
   function beep(freq, dur, type='square', vol=0.08){
     if (!soundOn || !audioCtx) return;
@@ -267,7 +268,36 @@
     pixelOn = s.getPropertyValue('--pixel-on').trim();
     pixelOff = s.getPropertyValue('--pixel-off').trim();
   }
+
+  function applyGreenScreen(on){
+    const root = document.documentElement;
+    if (on) {
+      // Pure classic green LCD look
+      root.style.setProperty('--screen-bg',  '#8fbc8f');
+      root.style.setProperty('--screen-bg2', '#7aab7a');
+      root.style.setProperty('--pixel-on',   '#0d1f0d');
+      root.style.setProperty('--pixel-off',  '#6a9a6a');
+      root.style.setProperty('--shell',      '#c9c3b3');
+      root.style.setProperty('--shell-dark', '#a89f8a');
+    } else {
+      // Original beige/olive look
+      root.style.setProperty('--screen-bg',  '#9db89a');
+      root.style.setProperty('--screen-bg2', '#93af8f');
+      root.style.setProperty('--pixel-on',   '#2b3a2c');
+      root.style.setProperty('--pixel-off',  '#7f9d7d');
+      root.style.setProperty('--shell',      '#c9c3b3');
+      root.style.setProperty('--shell-dark', '#a89f8a');
+    }
+    refreshColors();
+    // force redraw of current screen
+    if (state === 'menu') drawMenu();
+    else if (state === 'level') drawLevelSelect();
+    else if (state === 'settings') drawSettings();
+    else if (state === 'play' && G && G.draw) G.draw();
+  }
   refreshColors();
+  // apply saved green screen preference on boot
+  if (greenScreen) applyGreenScreen(true);
 
   function resizeCanvas(){
     const wrap = boardCanvas.parentElement;
@@ -436,6 +466,7 @@
     { key: 'slide',  label: 'SLIDE',  get: () => slideMode,  set: v => { slideMode = v; localStorage.setItem('bg_slide', v?'1':'0'); } },
     { key: 'hold',   label: 'HOLD',   get: () => holdRepeat, set: v => { holdRepeat = v; localStorage.setItem('bg_hold', v?'1':'0'); } },
     { key: 'ghost',  label: 'GHOST',  get: () => ghostOn,    set: v => { ghostOn = v; localStorage.setItem('bg_ghost', v?'1':'0'); } },
+    { key: 'green',  label: 'GREEN',  get: () => greenScreen, set: v => { greenScreen = v; localStorage.setItem('bg_green', v?'1':'0'); applyGreenScreen(v); } },
     { key: 'sound',  label: 'SOUND',  get: () => soundOn,    set: v => { soundOn = v; localStorage.setItem('bg_sound', v?'1':'0'); document.getElementById('btnSound').textContent = v ? 'SOUND' : 'MUTE'; } },
   ];
 
@@ -517,23 +548,19 @@
     function dirFromPoint(clientX, clientY){
       const r = dpad.getBoundingClientRect();
       const x = clientX - r.left;
-      const y = clientY - r.top;
       const cx = r.width / 2;
-      const cy = r.height / 2;
       const dx = x - cx;
-      const dy = y - cy;
-      // deadzone in center
-      if (Math.abs(dx) < r.width*0.12 && Math.abs(dy) < r.height*0.12) return null;
-      if (Math.abs(dx) > Math.abs(dy)) return dx < 0 ? 'left' : 'right';
-      return dy < 0 ? 'up' : 'down';
+      // SLIDE is left/right only — ignore vertical to avoid accidental up/down
+      // generous deadzone so small finger jitter doesn't trigger
+      if (Math.abs(dx) < r.width * 0.18) return null;
+      return dx < 0 ? 'left' : 'right';
     }
 
     function applyDir(dir){
       if (!dir || state !== 'play' || !G) return;
       if (dir === 'left') G.onLeft();
       else if (dir === 'right') G.onRight();
-      else if (dir === 'up') G.onUp();
-      else if (dir === 'down') G.onDown();
+      // up/down intentionally disabled in slide mode
       if (G.draw) G.draw();
     }
 
@@ -550,12 +577,10 @@
       const dir = dirFromPoint(t.clientX, t.clientY);
       activeDir = dir;
       applyDir(dir);
-      // highlight the button
+      // highlight left/right only
       dpad.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active-press'));
       if (dir === 'left') document.getElementById('btnLeft').classList.add('active-press');
       if (dir === 'right') document.getElementById('btnRight').classList.add('active-press');
-      if (dir === 'up') document.getElementById('btnUp').classList.add('active-press');
-      if (dir === 'down') document.getElementById('btnDown').classList.add('active-press');
       // continuous while finger stays in zone
       if (slideTimer) clearInterval(slideTimer);
       slideTimer = setInterval(() => { if (activeDir) applyDir(activeDir); }, 70);
@@ -572,8 +597,10 @@
         dpad.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active-press'));
         if (dir === 'left') document.getElementById('btnLeft').classList.add('active-press');
         if (dir === 'right') document.getElementById('btnRight').classList.add('active-press');
-        if (dir === 'up') document.getElementById('btnUp').classList.add('active-press');
-        if (dir === 'down') document.getElementById('btnDown').classList.add('active-press');
+      } else if (!dir) {
+        // finger back to deadzone — stop repeating but keep tracking
+        activeDir = null;
+        dpad.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active-press'));
       }
     }
 
