@@ -122,27 +122,30 @@
   .d-down  { left: 39px; bottom: 0; width: 38px; height: 38px; border-radius: 2px 2px 8px 8px;}
   .d-center{ left: 39px; top: 38px; width: 38px; height: 40px; background: var(--shell-dark); box-shadow:none; }
 
-  /* ===== SLIDE MODE: big finger-friendly L/R only ===== */
-  .controls.slide-mode .dpad {
-    width: 160px; height: 72px;
+  /* ===== BIG 3-BUTTON MODE: large ↓ ◀ ▶ (no up) ===== */
+  .controls.big-mode .dpad {
+    width: 168px; height: 120px;
   }
-  .controls.slide-mode .d-up,
-  .controls.slide-mode .d-down,
-  .controls.slide-mode .d-center {
+  .controls.big-mode .d-up,
+  .controls.big-mode .d-center {
     display: none !important;
   }
-  .controls.slide-mode .d-left {
-    left: 0; top: 0; width: 72px; height: 72px;
-    border-radius: 14px; font-size: 28px;
+  .controls.big-mode .d-left {
+    left: 0; top: 24px; width: 56px; height: 72px;
+    border-radius: 12px; font-size: 26px;
   }
-  .controls.slide-mode .d-right {
-    right: 0; top: 0; width: 72px; height: 72px;
-    border-radius: 14px; font-size: 28px;
+  .controls.big-mode .d-right {
+    right: 0; top: 24px; width: 56px; height: 72px;
+    border-radius: 12px; font-size: 26px;
   }
-  .controls.slide-mode .abtns {
+  .controls.big-mode .d-down {
+    left: 56px; bottom: 0; top: auto; width: 56px; height: 56px;
+    border-radius: 12px; font-size: 24px;
+  }
+  .controls.big-mode .abtns {
     gap: 8px;
   }
-  .controls.slide-mode .round {
+  .controls.big-mode .round {
     width: 64px; height: 64px; font-size: 15px;
   }
 
@@ -230,7 +233,7 @@
 (function(){
   // ========== AUDIO & SETTINGS ==========
   let soundOn   = localStorage.getItem('bg_sound')  !== '0';
-  let slideMode = localStorage.getItem('bg_slide')  === '1'; // big L/R layout, default OFF
+  let bigMode = localStorage.getItem('bg_big')  === '1'; // 3 big buttons ↓◀▶, default OFF
   let ghostOn   = localStorage.getItem('bg_ghost')  !== '0'; // Tetris ghost piece
   let holdRepeat= localStorage.getItem('bg_hold')   !== '0'; // classic hold-to-repeat
   let greenScreen = localStorage.getItem('bg_green') === '1'; // pure green LCD
@@ -249,7 +252,7 @@
       speed: 'SPEED',
       startPlay: 'START = play',
       settings: 'SETTINGS',
-      slide: 'SLIDE',
+      big: 'BIG 3',
       hold: 'HOLD',
       ghost: 'GHOST',
       green: 'GREEN',
@@ -290,7 +293,7 @@
       speed: 'ΤΑΧΥΤΗΤΑ',
       startPlay: 'START = έναρξη',
       settings: 'ΡΥΘΜΙΣΕΙΣ',
-      slide: 'ΟΛΙΣΘΗΣΗ',
+      big: 'ΜΕΓ 3',
       hold: 'ΚΡΑΤΗΜΑ',
       ghost: 'ΣΚΙΑ',
       green: 'ΠΡΑΣΙΝΟ',
@@ -324,10 +327,10 @@
   };
   function t(key){ return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }
 
-  function applySlideLayout(){
+  function applyBigLayout(){
     // Big L/R buttons only while actually playing a game
     const controls = document.querySelector('.controls');
-    if (controls) controls.classList.toggle('slide-mode', !!(slideMode && state === 'play'));
+    if (controls) controls.classList.toggle('big-mode', !!(bigMode && state === 'play'));
   }
 
   function applyLanguage(){
@@ -598,7 +601,7 @@
   }
 
   const SETTINGS_OPTS = [
-    { key: 'slide',  labelKey: 'slide',  get: () => slideMode,   set: v => { slideMode = v; localStorage.setItem('bg_slide', v?'1':'0'); applySlideLayout(); } },
+    { key: 'big',  labelKey: 'big',  get: () => bigMode,   set: v => { bigMode = v; localStorage.setItem('bg_big', v?'1':'0'); applyBigLayout(); } },
     { key: 'hold',   labelKey: 'hold',   get: () => holdRepeat,  set: v => { holdRepeat = v; localStorage.setItem('bg_hold', v?'1':'0'); } },
     { key: 'ghost',  labelKey: 'ghost',  get: () => ghostOn,     set: v => { ghostOn = v; localStorage.setItem('bg_ghost', v?'1':'0'); } },
     { key: 'green',  labelKey: 'green',  get: () => greenScreen, set: v => { greenScreen = v; localStorage.setItem('bg_green', v?'1':'0'); applyGreenScreen(v); } },
@@ -677,88 +680,6 @@
     el.addEventListener('click', h);
   }
 
-  // ===== Touch-drag SLIDE mode on the whole D-pad =====
-  (function setupDpadSlide(){
-    const dpad = document.querySelector('.dpad');
-    if (!dpad) return;
-    let activeDir = null;
-    let slideTimer = null;
-
-    function dirFromPoint(clientX, clientY){
-      const r = dpad.getBoundingClientRect();
-      const x = clientX - r.left;
-      const cx = r.width / 2;
-      const dx = x - cx;
-      // SLIDE is left/right only — ignore vertical to avoid accidental up/down
-      // generous deadzone so small finger jitter doesn't trigger
-      if (Math.abs(dx) < r.width * 0.18) return null;
-      return dx < 0 ? 'left' : 'right';
-    }
-
-    function applyDir(dir){
-      if (!dir || state !== 'play' || !G) return;
-      if (dir === 'left') G.onLeft();
-      else if (dir === 'right') G.onRight();
-      // up/down intentionally disabled in slide mode
-      if (G.draw) G.draw();
-    }
-
-    function clearSlide(){
-      activeDir = null;
-      if (slideTimer){ clearInterval(slideTimer); slideTimer = null; }
-      dpad.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active-press'));
-    }
-
-    function onStart(e){
-      if (!slideMode || state !== 'play') return;
-      e.preventDefault();
-      const t = e.touches ? e.touches[0] : e;
-      const dir = dirFromPoint(t.clientX, t.clientY);
-      activeDir = dir;
-      applyDir(dir);
-      // highlight left/right only
-      dpad.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active-press'));
-      if (dir === 'left') document.getElementById('btnLeft').classList.add('active-press');
-      if (dir === 'right') document.getElementById('btnRight').classList.add('active-press');
-      // continuous while finger stays in zone
-      if (slideTimer) clearInterval(slideTimer);
-      slideTimer = setInterval(() => { if (activeDir) applyDir(activeDir); }, 70);
-    }
-
-    function onMove(e){
-      if (!slideMode || state !== 'play' || activeDir === null) return;
-      e.preventDefault();
-      const t = e.touches ? e.touches[0] : e;
-      const dir = dirFromPoint(t.clientX, t.clientY);
-      if (dir && dir !== activeDir){
-        activeDir = dir;
-        applyDir(dir);
-        dpad.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active-press'));
-        if (dir === 'left') document.getElementById('btnLeft').classList.add('active-press');
-        if (dir === 'right') document.getElementById('btnRight').classList.add('active-press');
-      } else if (!dir) {
-        // finger back to deadzone — stop repeating but keep tracking
-        activeDir = null;
-        dpad.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active-press'));
-      }
-    }
-
-    function onEnd(e){
-      if (!slideMode) return;
-      e.preventDefault();
-      clearSlide();
-    }
-
-    dpad.addEventListener('touchstart', onStart, {passive:false});
-    dpad.addEventListener('touchmove', onMove, {passive:false});
-    dpad.addEventListener('touchend', onEnd, {passive:false});
-    dpad.addEventListener('touchcancel', onEnd, {passive:false});
-    // also mouse for desktop testing
-    dpad.addEventListener('mousedown', onStart);
-    window.addEventListener('mousemove', (e) => { if (activeDir !== null) onMove(e); });
-    window.addEventListener('mouseup', onEnd);
-  })();
-
   // ========== TETRIS (A & B) ==========
   const SHAPES = {
     I: [[0,1],[1,1],[2,1],[3,1]],
@@ -772,29 +693,43 @@
   const KEYS = Object.keys(SHAPES);
 
   function makeTetris(isB){
+    const COMBO_MSGS = {
+      en: {2:'GOOD!', 3:'GREAT!', 4:'EXCELLENT!', 5:'AMAZING!', 6:'UNREAL!', 7:'GODLIKE!', 8:'LEGENDARY!'},
+      el: {2:'ΚΑΛΑ!', 3:'ΤΕΛΕΙΑ!', 4:'ΕΞΑΙΡΕΤΙΚΑ!', 5:'ΑΠΙΣΤΕΥΤΟ!', 6:'ΘΕΙΚΟ!', 7:'ΘΡΥΛΙΚΟ!', 8:'ΘΕΟΣ!'}
+    };
+    const TETRIS_MSGS = {
+      en: {1:'TETRIS!', 2:'DOUBLE TETRIS!', 3:'TRIPLE TETRIS!', 4:'QUAD TETRIS!', 5:'PENTA TETRIS!'},
+      el: {1:'ΤΕΤΡΙΣ!', 2:'ΔΙΠΛΟ ΤΕΤΡΙΣ!', 3:'ΤΡΙΠΛΟ ΤΕΤΡΙΣ!', 4:'ΤΕΤΡΑΠΛΟ!', 5:'ΠΕΝΤΑΠΛΟ!'}
+    };
     return {
       grid: null, cur: null, curType: null, curRot: 0, nextType: null,
       score: 0, level: 1, lines: 0, dropInterval: 800, dropAcc: 0,
       gameOver: false,
+      combo: 0, tetrisStreak: 0,
+      splash: null, splashTimer: 0,
       init(){
         this.grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
         this.score=0; this.lines=0;
         this.level = levelSelect;
         this.dropInterval = Math.max(120, 900 - (speedSelect-1)*55 - (this.level-1)*35);
         this.dropAcc=0; this.gameOver=false;
+        this.combo=0; this.tetrisStreak=0;
+        this.splash=null; this.splashTimer=0;
         if (isB){
-          // garbage rows
           const garbage = Math.min(12, 2 + levelSelect*2);
           for (let r=ROWS-garbage; r<ROWS; r++){
             for (let c=0;c<COLS;c++) if (Math.random()>0.35) this.grid[r][c]='X';
-            // guarantee at least one hole
             this.grid[r][Math.floor(Math.random()*COLS)] = 0;
           }
         }
         this.nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
         this.spawn();
-        updateHUD(this.score, this.level, hiscore, 'NEXT', 'HI');
+        updateHUD(this.score, this.level, hiscore, t('next'), t('hi'));
         this.drawNext();
+      },
+      showSplash(text, ms=1100){
+        this.splash = text;
+        this.splashTimer = ms;
       },
       spawn(){
         this.curType = this.nextType;
@@ -813,14 +748,29 @@
         return false;
       },
       rotate(){
-        const newRot = (this.curRot+1)%4;
-        let p = SHAPES[this.curType].map(pt=>pt.slice());
-        for (let t=0;t<newRot;t++) p = p.map(([x,y])=>[3-y,x]);
-        const origin = {x: Math.min(...this.cur.map(c=>c.x)), y: Math.min(...this.cur.map(c=>c.y))};
-        const kicks = [0,-1,1,-2,2];
-        for (const k of kicks){
-          const cand = p.map(([x,y])=>({x:x+origin.x+k, y:y+origin.y}));
-          if (!this.collides(cand)){ this.cur=cand; this.curRot=newRot; sfx('rotate'); return; }
+        const newRot = (this.curRot + 1) % 4;
+        // rotate shape in its local 4x4 box
+        let local = SHAPES[this.curType].map(pt => pt.slice());
+        for (let t = 0; t < newRot; t++) local = local.map(([x, y]) => [3 - y, x]);
+        // previous local shape at current rotation
+        let prevLocal = SHAPES[this.curType].map(pt => pt.slice());
+        for (let t = 0; t < this.curRot; t++) prevLocal = prevLocal.map(([x, y]) => [3 - y, x]);
+        // infer pivot = current piece position minus previous local coords
+        // use the first block as anchor to avoid drift
+        const anchorCur = this.cur[0];
+        const anchorPrev = prevLocal[0];
+        const baseX = anchorCur.x - anchorPrev[0];
+        const baseY = anchorCur.y - anchorPrev[1];
+        // wall kicks: try no offset, then left, right, up, 2left, 2right
+        const kicks = [[0,0],[-1,0],[1,0],[0,-1],[-2,0],[2,0],[0,-2],[-1,-1],[1,-1]];
+        for (const [kx, ky] of kicks) {
+          const cand = local.map(([x, y]) => ({ x: baseX + x + kx, y: baseY + y + ky }));
+          if (!this.collides(cand)) {
+            this.cur = cand;
+            this.curRot = newRot;
+            sfx('rotate');
+            return;
+          }
         }
       },
       move(dx,dy){
@@ -850,14 +800,41 @@
           }
         }
         if (cleared){
+          // combo: consecutive line-clearing pieces
+          this.combo++;
           const pts = [0,40,100,300,1200][cleared]*this.level;
-          this.score += pts;
+          // combo bonus
+          const comboBonus = this.combo >= 2 ? (this.combo - 1) * 50 * this.level : 0;
+          this.score += pts + comboBonus;
           this.lines += cleared;
           const newLev = Math.floor(this.lines/10)+levelSelect;
           if (newLev > this.level){ this.level=newLev; sfx('level'); this.dropInterval=Math.max(80,this.dropInterval-40); }
           else sfx('line');
+
+          // tetris streak (4-line clears)
+          if (cleared === 4) {
+            this.tetrisStreak++;
+            const tMsgs = TETRIS_MSGS[lang] || TETRIS_MSGS.en;
+            const tKey = Math.min(this.tetrisStreak, 5);
+            this.showSplash(tMsgs[tKey] || tMsgs[5], 1300);
+            sfx('level');
+          } else {
+            this.tetrisStreak = 0;
+            // combo splash from 2nd consecutive clear
+            if (this.combo >= 2) {
+              const cMsgs = COMBO_MSGS[lang] || COMBO_MSGS.en;
+              const cKey = Math.min(this.combo, 8);
+              const msg = cMsgs[cKey] || cMsgs[8];
+              this.showSplash(this.combo + 'x ' + msg, 1000);
+            }
+          }
+
           hiscore = saveHi(currentMode.id, this.score);
-          updateHUD(this.score, this.level, hiscore, 'NEXT', 'HI');
+          updateHUD(this.score, this.level, hiscore, t('next'), t('hi'));
+        } else {
+          // locked piece with no lines → reset combos
+          this.combo = 0;
+          this.tetrisStreak = 0;
         }
       },
       die(){
@@ -872,6 +849,10 @@
         if (this.dropAcc >= this.dropInterval){
           this.dropAcc=0;
           if (!this.move(0,1)) this.lock();
+        }
+        if (this.splashTimer > 0) {
+          this.splashTimer -= dt;
+          if (this.splashTimer <= 0) { this.splash = null; this.splashTimer = 0; }
         }
       },
       draw(){
@@ -888,6 +869,33 @@
             this.cur.forEach(p=>drawGhostCell(p.x, p.y+off));
           }
           this.cur.forEach(p=>drawCell(p.x,p.y,true));
+        }
+        // combo / tetris splash in center of board
+        if (this.splash && this.splashTimer > 0) {
+          const alpha = Math.min(1, this.splashTimer / 200);
+          bctx.save();
+          bctx.globalAlpha = alpha;
+          bctx.fillStyle = pixelOn;
+          const fontSize = Math.max(12, Math.floor(cellSize * 1.3));
+          bctx.font = `bold ${fontSize}px VT323, monospace`;
+          bctx.textAlign = 'center';
+          bctx.textBaseline = 'middle';
+          // dark backing box
+          const tw = bctx.measureText(this.splash).width;
+          const bx = boardCanvas.width / 2;
+          const by = boardCanvas.height / 2;
+          bctx.fillStyle = pixelOff;
+          bctx.globalAlpha = alpha * 0.85;
+          bctx.fillRect(bx - tw/2 - 6, by - fontSize/2 - 4, tw + 12, fontSize + 8);
+          bctx.globalAlpha = alpha;
+          bctx.fillStyle = pixelOn;
+          bctx.fillText(this.splash, bx, by);
+          // small combo counter under splash if combo >= 2 and not tetris msg
+          if (this.combo >= 2 && this.tetrisStreak === 0) {
+            bctx.font = `${Math.floor(fontSize*0.7)}px VT323, monospace`;
+            bctx.fillText('COMBO x' + this.combo, bx, by + fontSize * 0.9);
+          }
+          bctx.restore();
         }
       },
       drawNext(){
@@ -1515,7 +1523,7 @@
     else if (state==='level') drawLevelSelect();
     else if (state==='settings') drawSettings();
     // keep button layout in sync (big L/R only while playing)
-    applySlideLayout();
+    applyBigLayout();
     animId = requestAnimationFrame(loop);
   }
 
@@ -1567,15 +1575,15 @@
   function togglePause(){
     if (state==='play'){
       state='pause';
-      applySlideLayout();
+      applyBigLayout();
       showOverlay(t('paused'), MODES[menuIndex].name, t('resume'));
     } else if (state==='pause'){
       state='play'; hideOverlay(); lastTs=performance.now();
-      applySlideLayout();
+      applyBigLayout();
     } else if (state==='menu'){
       hideOverlay();
       state='level'; sfx('select'); drawLevelSelect();
-      applySlideLayout();
+      applyBigLayout();
     } else if (state==='level'){
       startPlay();
     } else if (state==='settings'){
@@ -1591,7 +1599,7 @@
     G.init();
     state='play';
     hideOverlay();
-    applySlideLayout();
+    applyBigLayout();
     sfx('start');
     lastTs = performance.now();
   }
@@ -1601,14 +1609,14 @@
     state = 'settings';
     settingsIndex = 0;
     hideOverlay();
-    applySlideLayout();
+    applyBigLayout();
     sfx('select');
     drawSettings();
   }
   function closeSettings(){
     state = prevStateBeforeSettings || 'menu';
     sfx('select');
-    applySlideLayout();
+    applyBigLayout();
     if (state === 'menu') drawMenu();
     else if (state === 'level') drawLevelSelect();
     else drawMenu();
@@ -1617,7 +1625,7 @@
     state='menu';
     G=null;
     hideOverlay();
-    applySlideLayout();
+    applyBigLayout();
     levelSelect = 1;
     speedSelect = 1;
     menuIndex = 0;
@@ -1675,7 +1683,7 @@
   hideOverlay();
   applyLanguage();
   if (greenScreen) applyGreenScreen(true);
-  applySlideLayout();
+  applyBigLayout();
   drawMenu();
   requestAnimationFrame(loop);
 
