@@ -173,7 +173,7 @@
           <div class="val" id="hiscore">0</div>
         </div>
       </div>
-      <div class="overlay show" id="overlay">
+      <div class="overlay" id="overlay">
         <div id="overlayTitle">BRICK GAME</div>
         <div class="small" id="overlaySub">9999 IN 1</div>
         <div class="tiny" id="overlayTiny">press START</div>
@@ -365,9 +365,9 @@
   // ========== MENU ==========
   function drawMenu(){
     clearBoard();
-    // title
+    hideOverlay(); // ensure splash never stays on top of menu
     const lines = [
-      '  SELECT GAME',
+      ' SELECT GAME',
       '',
     ];
     MODES.forEach((m,i)=>{
@@ -375,15 +375,23 @@
       lines.push(`${prefix}${m.id} ${m.name}`);
     });
     lines.push('');
-    lines.push(' A/B or ▲▼');
-    lines.push(' START=OK');
+    lines.push(' ▲▼  move');
+    lines.push(' START = OK');
 
     bctx.fillStyle = pixelOn;
-    bctx.font = `${Math.floor(cellSize*1.1)}px VT323, monospace`;
+    bctx.font = `${Math.floor(cellSize*1.15)}px VT323, monospace`;
     bctx.textAlign = 'left';
     bctx.textBaseline = 'top';
-    const startY = cellSize * 1;
+    const startY = cellSize * 0.8;
     lines.forEach((ln,i)=>{
+      // highlight selected row
+      if (i >= 2 && i < 2 + MODES.length && (i-2) === menuIndex) {
+        bctx.fillStyle = pixelOn;
+        bctx.fillRect(cellSize*0.2, startY + i*(cellSize*0.95) - 1, cellSize*9.2, cellSize*0.9);
+        bctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--screen-bg').trim() || '#9db89a';
+      } else {
+        bctx.fillStyle = pixelOn;
+      }
       bctx.fillText(ln, cellSize*0.4, startY + i*(cellSize*0.95));
     });
 
@@ -394,24 +402,25 @@
 
   function drawLevelSelect(){
     clearBoard();
+    hideOverlay();
     const m = MODES[menuIndex];
     const lines = [
-      `  GAME ${m.id}`,
-      `  ${m.name}`,
+      ` GAME ${m.id}`,
+      ` ${m.name}`,
       '',
       ` LEVEL  ${levelSelect}`,
       ` SPEED  ${speedSelect}`,
       '',
-      ' ◀▶ level',
-      ' ▲▼ speed',
-      ' START play'
+      ' ◀▶  level',
+      ' ▲▼  speed',
+      ' START = play'
     ];
     bctx.fillStyle = pixelOn;
-    bctx.font = `${Math.floor(cellSize*1.15)}px VT323, monospace`;
+    bctx.font = `${Math.floor(cellSize*1.2)}px VT323, monospace`;
     bctx.textAlign = 'left';
     bctx.textBaseline = 'top';
     lines.forEach((ln,i)=>{
-      bctx.fillText(ln, cellSize*0.5, cellSize*2 + i*(cellSize*1.05));
+      bctx.fillText(ln, cellSize*0.5, cellSize*1.8 + i*(cellSize*1.1));
     });
     nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
     updateHUD(0, levelSelect, loadHi(m.id), 'LVL', 'HI');
@@ -469,7 +478,7 @@
         this.grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
         this.score=0; this.lines=0;
         this.level = levelSelect;
-        this.dropInterval = Math.max(80, 800 - (speedSelect-1)*70 - (this.level-1)*40);
+        this.dropInterval = Math.max(120, 900 - (speedSelect-1)*55 - (this.level-1)*35);
         this.dropAcc=0; this.gameOver=false;
         if (isB){
           // garbage rows
@@ -605,7 +614,7 @@
       lanes: [2, 4, 6], // x positions
       init(){
         this.playerLane=1; this.cars=[]; this.score=0;
-        this.level=levelSelect; this.speed = 1.2 + (speedSelect-1)*0.35 + (levelSelect-1)*0.15;
+        this.level=levelSelect; this.speed = 0.55 + (speedSelect-1)*0.12 + (levelSelect-1)*0.06;
         this.acc=0; this.spawnAcc=0; this.gameOver=false;
         updateHUD(this.score, this.level, hiscore, 'CARS', 'HI');
         nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
@@ -628,11 +637,11 @@
           return true;
         });
         // spawn
-        const spawnRate = Math.max(400, 1200 - this.level*80 - speedSelect*50);
+        const spawnRate = Math.max(700, 1800 - this.level*60 - speedSelect*40);
         if (this.spawnAcc > spawnRate){ this.spawnAcc=0; this.spawnCar(); }
         // level up
         if (this.score > 0 && this.score % 200 === 0 && this.score/200 >= this.level){
-          this.level++; this.speed += 0.18; sfx('level');
+          this.level++; this.speed += 0.08; sfx('level');
           updateHUD(this.score,this.level,hiscore,'CARS','HI');
         }
         // collision
@@ -686,7 +695,7 @@
         this.body = [{x:4,y:10},{x:3,y:10},{x:2,y:10}];
         this.dir={x:1,y:0}; this.nextDir={x:1,y:0};
         this.score=0; this.level=levelSelect;
-        this.moveInterval = Math.max(60, 200 - (speedSelect-1)*18 - (levelSelect-1)*12);
+        this.moveInterval = Math.max(90, 280 - (speedSelect-1)*15 - (levelSelect-1)*10);
         this.moveAcc=0; this.gameOver=false; this.grow=0;
         this.placeFood();
         updateHUD(this.score, this.level, hiscore, 'FOOD', 'HI');
@@ -717,7 +726,7 @@
             this.grow += 1;
             sfx('eat');
             hiscore = saveHi('D', this.score);
-            if (this.score % 50 === 0){ this.level++; this.moveInterval=Math.max(50,this.moveInterval-12); sfx('level'); }
+            if (this.score % 50 === 0){ this.level++; this.moveInterval=Math.max(80,this.moveInterval-10); sfx('level'); }
             updateHUD(this.score, this.level, hiscore, 'FOOD', 'HI');
             this.placeFood();
           } else if (this.grow>0){ this.grow--; }
@@ -777,10 +786,10 @@
         if (this.gameOver) return;
         this.acc += dt; this.spawnAcc += dt;
         // move bullets
-        this.bullets.forEach(b=> b.y -= 0.25*(dt/16)*(1+speedSelect*0.1));
+        this.bullets.forEach(b=> b.y -= 0.18*(dt/16)*(1+speedSelect*0.06));
         this.bullets = this.bullets.filter(b=>b.y > -1);
         // enemy descend slowly
-        if (this.spawnAcc > Math.max(800, 2500 - this.level*150 - speedSelect*100)){
+        if (this.spawnAcc > Math.max(1200, 3200 - this.level*120 - speedSelect*80)){
           this.spawnAcc=0;
           this.enemies.forEach(e=> e.y += 1);
           // check bottom
@@ -875,12 +884,12 @@
         this.acc += dt; this.eAcc += dt; this.spawnCD += dt;
         // player bullets
         this.bullets.forEach(b=>{
-          b.x += this.dirs[b.dir].x * 0.35*(dt/16);
-          b.y += this.dirs[b.dir].y * 0.35*(dt/16);
+          b.x += this.dirs[b.dir].x * 0.22*(dt/16);
+          b.y += this.dirs[b.dir].y * 0.22*(dt/16);
         });
         this.bullets = this.bullets.filter(b=>b.x>=-1&&b.x<COLS+1&&b.y>=-1&&b.y<ROWS+1);
         // enemies AI
-        if (this.eAcc > Math.max(100, 280 - this.level*15 - speedSelect*20)){
+        if (this.eAcc > Math.max(160, 380 - this.level*12 - speedSelect*15)){
           this.eAcc=0;
           this.enemies.forEach(e=>{
             e.moveCD--; e.shootCD--;
@@ -963,7 +972,7 @@
       bricks: [], score:0, level:1, lives:3, acc:0, gameOver:false, started:false,
       init(){
         this.paddleX=3; this.ballX=5; this.ballY=14;
-        this.ballDX=0.11 + speedSelect*0.02; this.ballDY=-0.11 - speedSelect*0.02;
+        this.ballDX=0.07 + speedSelect*0.012; this.ballDY=-0.07 - speedSelect*0.012;
         this.score=0; this.level=levelSelect; this.lives=3;
         this.acc=0; this.gameOver=false; this.started=false;
         this.buildBricks();
@@ -1070,7 +1079,7 @@
         for (let r=0;r<4;r++){
           const y = 15-r;
           const dir = r%2===0 ? 1 : -1;
-          const sp = (0.06 + this.level*0.01 + speedSelect*0.008) * dir;
+          const sp = (0.035 + this.level*0.006 + speedSelect*0.005) * dir;
           for (let i=0;i<3;i++){
             this.cars.push({x: Math.random()*COLS, y, w:2, sp, dir});
           }
@@ -1079,7 +1088,7 @@
         for (let r=0;r<4;r++){
           const y = 7-r;
           const dir = r%2===0 ? -1 : 1;
-          const sp = (0.05 + this.level*0.008 + speedSelect*0.006) * dir;
+          const sp = (0.03 + this.level*0.005 + speedSelect*0.004) * dir;
           for (let i=0;i<2;i++){
             this.logs.push({x: Math.random()*COLS, y, w:3, sp, dir});
           }
@@ -1239,8 +1248,9 @@
       state='pause';
       showOverlay('PAUSED', MODES[menuIndex].name, 'press START to resume');
     } else if (state==='pause'){
-      state='play'; hideOverlay(); lastTs=0;
+      state='play'; hideOverlay(); lastTs=performance.now();
     } else if (state==='menu'){
+      hideOverlay();
       state='level'; sfx('select'); drawLevelSelect();
     } else if (state==='level'){
       startPlay();
@@ -1256,18 +1266,16 @@
     state='play';
     hideOverlay();
     sfx('start');
-    lastTs=0;
+    lastTs = performance.now();
   }
   function doReset(){
-    if (state==='play' || state==='pause' || state==='over'){
-      state='menu';
-      G=null;
-      showOverlay('BRICK GAME', '9999 IN 1', 'press START');
-      drawMenu();
-    } else {
-      state='menu';
-      drawMenu();
-    }
+    state='menu';
+    G=null;
+    hideOverlay();
+    levelSelect = 1;
+    speedSelect = 1;
+    menuIndex = 0;
+    drawMenu();
   }
 
   // bind buttons
@@ -1310,8 +1318,9 @@
 
   // boot
   resizeCanvas();
-  showOverlay('BRICK GAME', '9999 IN 1', 'press START');
   state='menu';
+  hideOverlay();
+  drawMenu();
   requestAnimationFrame(loop);
 
   // PWA
