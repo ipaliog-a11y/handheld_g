@@ -324,9 +324,10 @@
   };
   function t(key){ return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }
 
-  function applySlideLayout(on){
+  function applySlideLayout(){
+    // Big L/R buttons only while actually playing a game
     const controls = document.querySelector('.controls');
-    if (controls) controls.classList.toggle('slide-mode', !!on);
+    if (controls) controls.classList.toggle('slide-mode', !!(slideMode && state === 'play'));
   }
 
   function applyLanguage(){
@@ -597,7 +598,7 @@
   }
 
   const SETTINGS_OPTS = [
-    { key: 'slide',  labelKey: 'slide',  get: () => slideMode,   set: v => { slideMode = v; localStorage.setItem('bg_slide', v?'1':'0'); applySlideLayout(v); } },
+    { key: 'slide',  labelKey: 'slide',  get: () => slideMode,   set: v => { slideMode = v; localStorage.setItem('bg_slide', v?'1':'0'); applySlideLayout(); } },
     { key: 'hold',   labelKey: 'hold',   get: () => holdRepeat,  set: v => { holdRepeat = v; localStorage.setItem('bg_hold', v?'1':'0'); } },
     { key: 'ghost',  labelKey: 'ghost',  get: () => ghostOn,     set: v => { ghostOn = v; localStorage.setItem('bg_ghost', v?'1':'0'); } },
     { key: 'green',  labelKey: 'green',  get: () => greenScreen, set: v => { greenScreen = v; localStorage.setItem('bg_green', v?'1':'0'); applyGreenScreen(v); } },
@@ -1475,8 +1476,9 @@
         this.logs.forEach(l=> drawRect(Math.floor(l.x), l.y, l.w, 1, true));
         // cars
         this.cars.forEach(c=> drawRect(Math.floor(c.x), c.y, c.w, 1, true));
-        // frog
-        drawCell(Math.floor(this.fx), this.fy, true);
+        // frog – flashing for visibility
+        const flash = (Math.floor(performance.now() / 180) % 2) === 0;
+        drawCell(Math.floor(this.fx), this.fy, true, flash ? 1 : 0.35);
       },
       onLeft(){ this.move(-1,0); },
       onRight(){ this.move(1,0); },
@@ -1512,6 +1514,8 @@
     } else if (state==='menu') drawMenu();
     else if (state==='level') drawLevelSelect();
     else if (state==='settings') drawSettings();
+    // keep button layout in sync (big L/R only while playing)
+    applySlideLayout();
     animId = requestAnimationFrame(loop);
   }
 
@@ -1563,12 +1567,15 @@
   function togglePause(){
     if (state==='play'){
       state='pause';
+      applySlideLayout();
       showOverlay(t('paused'), MODES[menuIndex].name, t('resume'));
     } else if (state==='pause'){
       state='play'; hideOverlay(); lastTs=performance.now();
+      applySlideLayout();
     } else if (state==='menu'){
       hideOverlay();
       state='level'; sfx('select'); drawLevelSelect();
+      applySlideLayout();
     } else if (state==='level'){
       startPlay();
     } else if (state==='settings'){
@@ -1584,6 +1591,7 @@
     G.init();
     state='play';
     hideOverlay();
+    applySlideLayout();
     sfx('start');
     lastTs = performance.now();
   }
@@ -1593,12 +1601,14 @@
     state = 'settings';
     settingsIndex = 0;
     hideOverlay();
+    applySlideLayout();
     sfx('select');
     drawSettings();
   }
   function closeSettings(){
     state = prevStateBeforeSettings || 'menu';
     sfx('select');
+    applySlideLayout();
     if (state === 'menu') drawMenu();
     else if (state === 'level') drawLevelSelect();
     else drawMenu();
@@ -1607,6 +1617,7 @@
     state='menu';
     G=null;
     hideOverlay();
+    applySlideLayout();
     levelSelect = 1;
     speedSelect = 1;
     menuIndex = 0;
@@ -1662,9 +1673,9 @@
   resizeCanvas();
   state='menu';
   hideOverlay();
-  applySlideLayout(slideMode);
   applyLanguage();
   if (greenScreen) applyGreenScreen(true);
+  applySlideLayout();
   drawMenu();
   requestAnimationFrame(loop);
 
