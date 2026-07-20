@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>BRICK GAME</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c9c3b3">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Brick Game">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --shell: #c9c3b3;
+    --shell-dark: #a89f8a;
+    --screen-bg: #9db89a;
+    --screen-bg2: #93af8f;
+    --pixel-on: #2b3a2c;
+    --pixel-off: #7f9d7d;
+    --btn: #3c3c3c;
+    --btn-dark: #232323;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #6b6558;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; touch-action: none;
+    font-family: 'VT323', monospace;
+  }
+  .device {
+    width: min(94vw, 420px);
+    height: min(96vh, 820px);
+    background: linear-gradient(145deg, var(--shell), var(--shell-dark));
+    border-radius: 22px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 2px 2px rgba(255,255,255,0.4);
+    padding: 16px 16px 10px;
+    display: flex; flex-direction: column;
+    gap: 10px;
+  }
+  .brand {
+    text-align: center; color: #5a5343; font-size: 18px; letter-spacing: 3px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .screen-wrap {
+    background: #4b4a3f;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: inset 0 3px 8px rgba(0,0,0,0.6);
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  .screen {
+    background: linear-gradient(160deg, var(--screen-bg), var(--screen-bg2));
+    border-radius: 4px;
+    flex: 1;
+    display: flex;
+    padding: 8px;
+    gap: 8px;
+    min-height: 0;
+    position: relative;
+  }
+  .board-area { flex: 1; display: flex; }
+  canvas#board { width: 100%; height: 100%; image-rendering: pixelated; }
+  .side {
+    width: 76px;
+    display: flex; flex-direction: column; gap: 6px;
+    color: var(--pixel-on);
+  }
+  .panel {
+    border: 2px solid var(--pixel-on);
+    border-radius: 3px;
+    padding: 4px;
+    text-align: center;
+  }
+  .panel .lbl { font-size: 12px; letter-spacing: 1px; opacity: 0.8; }
+  .panel .val { font-size: 22px; line-height: 1; }
+  canvas#next { width: 100%; height: 56px; image-rendering: pixelated; }
+  .overlay {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 6px;
+    background: rgba(157,184,154,0.92);
+    color: var(--pixel-on);
+    font-size: 26px; text-align: center;
+    letter-spacing: 2px;
+  }
+  .overlay.show { display: flex; }
+  .overlay .small { font-size: 15px; opacity: 0.85; }
+
+  .controls {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 4px 2px;
+  }
+  .dpad {
+    position: relative;
+    width: 116px; height: 116px;
+  }
+  .dbtn {
+    position: absolute;
+    background: linear-gradient(160deg, var(--btn), var(--btn-dark));
+    border-radius: 6px;
+    box-shadow: 0 3px 0 #111, inset 0 1px 1px rgba(255,255,255,0.15);
+    color: #ccc; display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .dbtn:active, .dbtn.active-press { box-shadow: 0 1px 0 #111; transform: translateY(2px); background: linear-gradient(160deg, #565656, #2a2a2a); }
+  .d-left  { left: 0; top: 38px; width: 38px; height: 40px; border-radius: 8px 2px 2px 8px;}
+  .d-right { right: 0; top: 38px; width: 38px; height: 40px; border-radius: 2px 8px 8px 2px;}
+  .d-down  { left: 39px; bottom: 0; width: 38px; height: 38px; border-radius: 2px 2px 8px 8px;}
+  .d-center{ left: 39px; top: 38px; width: 38px; height: 40px; background: var(--shell-dark); box-shadow:none; }
+
+  .abtns { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .round {
+    width: 58px; height: 58px; border-radius: 50%;
+    background: linear-gradient(160deg, #7a2b2b, #4a1616);
+    box-shadow: 0 4px 0 #2a0d0d, inset 0 1px 1px rgba(255,255,255,0.25);
+    color: #f0d9d9; font-size: 15px; display: flex; align-items: center; justify-content: center;
+  }
+  .round.blue {
+    background: linear-gradient(160deg, #2b4a7a, #16294a);
+    box-shadow: 0 4px 0 #0d1f2a, inset 0 1px 1px rgba(255,255,255,0.25);
+    color: #d9e4f0;
+  }
+  .round:active, .round.active-press { box-shadow: 0 1px 0 #2a0d0d; transform: translateY(3px); }
+
+  .bottom-row {
+    display: flex; justify-content: center; gap: 14px; padding: 4px 0 2px;
+  }
+  .pill {
+    background: linear-gradient(160deg, #555, #2c2c2c);
+    color: #ccc; border-radius: 12px; padding: 6px 16px;
+    font-size: 13px; letter-spacing: 1px;
+    box-shadow: 0 3px 0 #111;
+  }
+  .pill:active { box-shadow: 0 1px 0 #111; transform: translateY(2px); }
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="brand">BRICK GAME &middot; 1 IN 1</div>
+  <div class="screen-wrap">
+    <div class="screen">
+      <div class="board-area"><canvas id="board"></canvas></div>
+      <div class="side">
+        <div class="panel">
+          <div class="lbl">NEXT</div>
+          <canvas id="next" width="60" height="56"></canvas>
+        </div>
+        <div class="panel">
+          <div class="lbl">SCORE</div>
+          <div class="val" id="score">0</div>
+        </div>
+        <div class="panel">
+          <div class="lbl">LEVEL</div>
+          <div class="val" id="level">1</div>
+        </div>
+        <div class="panel">
+          <div class="lbl">LINES</div>
+          <div class="val" id="lines">0</div>
+        </div>
+      </div>
+      <div class="overlay" id="overlay">
+        <div id="overlayTitle">PAUSED</div>
+        <div class="small" id="overlaySub">tap start to resume</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="pill" id="btnStart">START/PAUSE</div>
+    <div class="pill" id="btnReset">RESET</div>
+  </div>
+  <div class="controls">
+    <div class="dpad">
+      <div class="dbtn d-left" id="btnLeft">◀</div>
+      <div class="dbtn d-right" id="btnRight">▶</div>
+      <div class="dbtn d-down" id="btnDown">▼</div>
+      <div class="dbtn d-center"></div>
+    </div>
+    <div class="abtns">
+      <div class="round" id="btnRotate">ROT</div>
+      <div class="round blue" id="btnDrop">DROP</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const COLS = 10, ROWS = 20;
+  const boardCanvas = document.getElementById('board');
+  const nextCanvas = document.getElementById('next');
+  const bctx = boardCanvas.getContext('2d');
+  const nctx = nextCanvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const levelEl = document.getElementById('level');
+  const linesEl = document.getElementById('lines');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlaySub = document.getElementById('overlaySub');
+
+  const SHAPES = {
+    I: [[0,1],[1,1],[2,1],[3,1]],
+    O: [[1,0],[2,0],[1,1],[2,1]],
+    T: [[1,0],[0,1],[1,1],[2,1]],
+    S: [[1,0],[2,0],[0,1],[1,1]],
+    Z: [[0,0],[1,0],[1,1],[2,1]],
+    J: [[0,0],[0,1],[1,1],[2,1]],
+    L: [[2,0],[0,1],[1,1],[2,1]]
+  };
+  const KEYS = Object.keys(SHAPES);
+
+  let grid, cur, curType, curRot, nextType, score, level, lines, dropInterval, dropTimer, running, paused, gameOver;
+  let cellSize = 0;
+
+  function newGrid(){ return Array.from({length: ROWS}, () => Array(COLS).fill(0)); }
+
+  function rotatePoints(pts, times){
+    let p = pts.map(pt => pt.slice());
+    for (let t = 0; t < times; t++){
+      p = p.map(([x,y]) => [3 - y, x]); // rotate within 4x4 box
+    }
+    return p;
+  }
+
+  function spawn(){
+    curType = nextType || KEYS[Math.floor(Math.random()*KEYS.length)];
+    nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
+    curRot = 0;
+    cur = rotatePoints(SHAPES[curType], 0).map(([x,y]) => ({x: x + 3, y: y}));
+    if (collides(cur)) { endGame(); }
+    drawNext();
+  }
+
+  function collides(points){
+    for (const p of points){
+      if (p.x < 0 || p.x >= COLS || p.y >= ROWS) return true;
+      if (p.y >= 0 && grid[p.y][p.x]) return true;
+    }
+    return false;
+  }
+
+  function merge(){
+    for (const p of cur){
+      if (p.y >= 0) grid[p.y][p.x] = curType;
+    }
+  }
+
+  function clearLines(){
+    let cleared = 0;
+    for (let r = ROWS - 1; r >= 0; r--){
+      if (grid[r].every(c => c)){
+        grid.splice(r,1);
+        grid.unshift(Array(COLS).fill(0));
+        cleared++;
+        r++;
+      }
+    }
+    if (cleared){
+      const points = [0,40,100,300,1200][cleared] * level;
+      score += points;
+      lines += cleared;
+      level = Math.floor(lines/10) + 1;
+      dropInterval = Math.max(120, 800 - (level-1)*60);
+      updateHUD();
+    }
+  }
+
+  function move(dx, dy){
+    const moved = cur.map(p => ({x: p.x+dx, y: p.y+dy}));
+    if (!collides(moved)){ cur = moved; return true; }
+    return false;
+  }
+
+  function rotate(){
+    const newRot = (curRot + 1) % 4;
+    const base = SHAPES[curType];
+    const pivotless = rotatePoints(base, newRot);
+    const minX = Math.min(...cur.map(p=>p.x));
+    const minY = Math.min(...cur.map(p=>p.y));
+    // find current bounding origin to keep rotation local
+    const origin = { x: Math.min(...cur.map(p=>p.x)) , y: Math.min(...cur.map(p=>p.y)) };
+    const testBase = rotatePoints(base, newRot).map(([x,y]) => ({x, y}));
+    // try placing rotated shape near current position with wall kicks
+    const kicks = [0,-1,1,-2,2];
+    for (const k of kicks){
+      const candidate = testBase.map(p => ({x: p.x + origin.x + k, y: p.y + origin.y}));
+      if (!collides(candidate)){ cur = candidate; curRot = newRot; return; }
+    }
+  }
+
+  function hardDrop(){
+    let d = 0;
+    while (move(0,1)) d++;
+    lockPiece();
+  }
+
+  function lockPiece(){
+    merge();
+    clearLines();
+    spawn();
+    resetDropTimer();
+  }
+
+  function tick(){
+    if (!move(0,1)) lockPiece();
+    draw();
+  }
+
+  function resetDropTimer(){
+    clearInterval(dropTimer);
+    dropTimer = setInterval(() => { if (running && !paused && !gameOver) tick(); }, dropInterval);
+  }
+
+  function resizeCanvas(){
+    const wrap = boardCanvas.parentElement;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    const size = Math.floor(Math.min(w / COLS, h / ROWS));
+    cellSize = Math.max(8, size);
+    boardCanvas.width = cellSize * COLS;
+    boardCanvas.height = cellSize * ROWS;
+    draw();
+  }
+
+  function drawCell(ctx, x, y, size, on){
+    ctx.fillStyle = on ? getComputedStyle(document.documentElement).getPropertyValue('--pixel-on') : 'transparent';
+    const pad = Math.max(1, size*0.08);
+    ctx.fillRect(x+pad, y+pad, size-pad*2, size-pad*2);
+  }
+
+  function getGhost(){
+    if (!cur) return null;
+    let offset = 0;
+    while (!collides(cur.map(p => ({x: p.x, y: p.y + offset + 1})))) offset++;
+    return cur.map(p => ({x: p.x, y: p.y + offset}));
+  }
+
+  function drawGhostCell(ctx, x, y, size){
+    const pixelOn = getComputedStyle(document.documentElement).getPropertyValue('--pixel-on');
+    const pad = Math.max(1, size*0.08);
+    ctx.save();
+    ctx.strokeStyle = pixelOn;
+    ctx.lineWidth = Math.max(1, size*0.09);
+    ctx.globalAlpha = 0.6;
+    ctx.strokeRect(x+pad+ctx.lineWidth/2, y+pad+ctx.lineWidth/2, size-pad*2-ctx.lineWidth, size-pad*2-ctx.lineWidth);
+    ctx.restore();
+  }
+
+  function draw(){
+    if (!cellSize) return;
+    bctx.clearRect(0,0,boardCanvas.width, boardCanvas.height);
+    // faint off-pixels grid (authentic LCD ghosting)
+    bctx.globalAlpha = 0.35;
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        bctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pixel-off');
+        const pad = Math.max(1, cellSize*0.08);
+        bctx.fillRect(c*cellSize+pad, r*cellSize+pad, cellSize-pad*2, cellSize-pad*2);
+      }
+    }
+    bctx.globalAlpha = 1;
+    // ghost piece (projected landing position)
+    const ghost = getGhost();
+    if (ghost){
+      for (const p of ghost){
+        if (p.y >= 0) drawGhostCell(bctx, p.x*cellSize, p.y*cellSize, cellSize);
+      }
+    }
+    // locked cells
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        if (grid[r][c]) drawCell(bctx, c*cellSize, r*cellSize, cellSize, true);
+      }
+    }
+    // current piece
+    if (cur){
+      for (const p of cur){
+        if (p.y >= 0) drawCell(bctx, p.x*cellSize, p.y*cellSize, cellSize, true);
+      }
+    }
+  }
+
+  function drawNext(){
+    nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
+    const pts = SHAPES[nextType];
+    const size = 12;
+    const offX = (nextCanvas.width - 4*size)/2;
+    const offY = (nextCanvas.height - 2*size)/2;
+    nctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pixel-on');
+    for (const [x,y] of pts){
+      const pad = 1;
+      nctx.fillRect(offX + x*size + pad, offY + y*size + pad, size-pad*2, size-pad*2);
+    }
+  }
+
+  function updateHUD(){
+    scoreEl.textContent = score;
+    levelEl.textContent = level;
+    linesEl.textContent = lines;
+  }
+
+  function showOverlay(title, sub){
+    overlayTitle.textContent = title;
+    overlaySub.textContent = sub || '';
+    overlay.classList.add('show');
+  }
+  function hideOverlay(){ overlay.classList.remove('show'); }
+
+  function startGame(){
+    grid = newGrid();
+    score = 0; level = 1; lines = 0; dropInterval = 800;
+    gameOver = false; paused = false; running = true;
+    nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
+    updateHUD();
+    spawn();
+    resetDropTimer();
+    hideOverlay();
+    draw();
+  }
+
+  function endGame(){
+    running = false; gameOver = true;
+    clearInterval(dropTimer);
+    showOverlay('GAME OVER', 'score ' + score + ' — reset to play again');
+  }
+
+  function togglePause(){
+    if (!running || gameOver) { startGame(); return; }
+    paused = !paused;
+    if (paused) showOverlay('PAUSED', 'tap start to resume');
+    else hideOverlay();
+  }
+
+  // input
+  const REPEAT_DELAY = 220; // ms before repeat kicks in
+  const REPEAT_RATE = 60;   // ms between repeats
+
+  function holdable(el, action){
+    let repeatTimer = null, delayTimer = null;
+    const fire = () => { if (running && !paused){ action(); draw(); } };
+    const start = (e) => {
+      e.preventDefault();
+      if (repeatTimer || delayTimer) return; // already active
+      el.classList.add('active-press');
+      fire();
+      delayTimer = setTimeout(() => {
+        repeatTimer = setInterval(fire, REPEAT_RATE);
+      }, REPEAT_DELAY);
+    };
+    const stop = (e) => {
+      if (e) e.preventDefault();
+      el.classList.remove('active-press');
+      clearTimeout(delayTimer); delayTimer = null;
+      clearInterval(repeatTimer); repeatTimer = null;
+    };
+    el.addEventListener('touchstart', start, { passive: false });
+    el.addEventListener('touchend', stop, { passive: false });
+    el.addEventListener('touchcancel', stop, { passive: false });
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', stop);
+    el.addEventListener('mouseleave', stop);
+  }
+
+  function tapOnly(el, action){
+    const handler = (e) => { e.preventDefault(); if (running && !paused){ action(); draw(); } };
+    el.addEventListener('touchstart', handler, { passive: false });
+    el.addEventListener('click', handler);
+  }
+
+  holdable(document.getElementById('btnLeft'), () => move(-1,0));
+  holdable(document.getElementById('btnRight'), () => move(1,0));
+  holdable(document.getElementById('btnDown'), () => { if(!move(0,1)) lockPiece(); });
+  tapOnly(document.getElementById('btnRotate'), () => rotate());
+  tapOnly(document.getElementById('btnDrop'), () => hardDrop());
+
+  document.getElementById('btnStart').addEventListener('touchstart', e=>{e.preventDefault(); togglePause();});
+  document.getElementById('btnReset').addEventListener('touchstart', e=>{e.preventDefault(); startGame();});
+  document.getElementById('btnStart').addEventListener('click', togglePause);
+  document.getElementById('btnReset').addEventListener('click', startGame);
+
+  document.addEventListener('keydown', (e) => {
+    if (!running || paused){
+      if (e.key === 'Enter' || e.key === ' ') togglePause();
+      return;
+    }
+    switch(e.key){
+      case 'ArrowLeft': move(-1,0); draw(); break;
+      case 'ArrowRight': move(1,0); draw(); break;
+      case 'ArrowDown': if(!move(0,1)) lockPiece(); draw(); break;
+      case 'ArrowUp': rotate(); draw(); break;
+      case ' ': hardDrop(); draw(); break;
+      case 'p': case 'P': togglePause(); break;
+    }
+  });
+
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+
+  // prevent page scroll/zoom on touch
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+  resizeCanvas();
+  showOverlay('BRICK GAME', 'tap START to play');
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+</script>
+</body>
+</html>
