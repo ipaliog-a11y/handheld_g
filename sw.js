@@ -1,4 +1,4 @@
-const CACHE_NAME = 'brick-game-9999-v2';
+const CACHE_NAME = 'brick-game-9999-v3';
 const ASSETS = [
   './',
   './index.html',

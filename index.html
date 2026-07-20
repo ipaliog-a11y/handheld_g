@@ -184,6 +184,7 @@
   <div class="bottom-row">
     <div class="pill" id="btnStart">START/PAUSE</div>
     <div class="pill" id="btnSound">SOUND</div>
+    <div class="pill" id="btnSettings">SET</div>
     <div class="pill" id="btnReset">RESET</div>
   </div>
   <div class="controls">
@@ -203,8 +204,9 @@
 
 <script>
 (function(){
-  // ========== AUDIO ==========
-  let soundOn = true;
+  // ========== AUDIO & SETTINGS ==========
+  let soundOn = localStorage.getItem('bg_sound') !== '0';
+  let slideMode = localStorage.getItem('bg_slide') !== '0'; // default ON
   const audioCtx = window.AudioContext ? new AudioContext() : null;
   function beep(freq, dur, type='square', vol=0.08){
     if (!soundOn || !audioCtx) return;
@@ -336,15 +338,17 @@
     { id:'H', name:'FROG',    desc:'Cross the road' }
   ];
 
-  let state = 'menu'; // menu | level | play | pause | over
+  let state = 'menu'; // menu | level | play | pause | over | settings
   let menuIndex = 0;
   let levelSelect = 1;
   let speedSelect = 1;
+  let settingsIndex = 0; // 0 = Slide Mode
   let currentMode = null;
   let G = null; // current game instance
   let hiscore = 0;
   let animId = null;
   let lastTs = 0;
+  let prevStateBeforeSettings = 'menu';
 
   function showOverlay(title, sub, tiny){
     overlayTitle.textContent = title || '';
@@ -426,6 +430,39 @@
     updateHUD(0, levelSelect, loadHi(m.id), 'LVL', 'HI');
   }
 
+  function drawSettings(){
+    clearBoard();
+    hideOverlay();
+    const slideLabel = slideMode ? 'ON ' : 'OFF';
+    const lines = [
+      '  SETTINGS',
+      '',
+      (settingsIndex===0 ? '>' : ' ') + 'SLIDE  ' + slideLabel,
+      '',
+      ' ▲▼  select',
+      ' ◀▶  change',
+      ' START/SET',
+      '   = back'
+    ];
+    bctx.fillStyle = pixelOn;
+    bctx.font = `${Math.floor(cellSize*1.2)}px VT323, monospace`;
+    bctx.textAlign = 'left';
+    bctx.textBaseline = 'top';
+    const startY = cellSize * 2;
+    lines.forEach((ln,i)=>{
+      if (i === 2 && settingsIndex === 0) {
+        bctx.fillStyle = pixelOn;
+        bctx.fillRect(cellSize*0.25, startY + i*(cellSize*1.1) - 1, cellSize*9.2, cellSize*1.0);
+        bctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--screen-bg').trim() || '#9db89a';
+      } else {
+        bctx.fillStyle = pixelOn;
+      }
+      bctx.fillText(ln, cellSize*0.5, startY + i*(cellSize*1.1));
+    });
+    nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
+    updateHUD(0, 0, 0, 'SET', '—');
+  }
+
   // ========== INPUT ==========
   const keys = {};
   function bindHoldable(el, downFn, upFn){
@@ -435,7 +472,10 @@
       if (delayT||repT) return;
       el.classList.add('active-press');
       downFn();
-      delayT = setTimeout(()=>{ repT = setInterval(downFn, 55); }, 220);
+      // only auto-repeat if Slide Mode is ON
+      if (slideMode) {
+        delayT = setTimeout(()=>{ repT = setInterval(downFn, 55); }, 220);
+      }
     };
     const stop = (e)=>{
       if(e) e.preventDefault();
@@ -1208,6 +1248,7 @@
       G.draw();
     } else if (state==='menu') drawMenu();
     else if (state==='level') drawLevelSelect();
+    else if (state==='settings') drawSettings();
     animId = requestAnimationFrame(loop);
   }
 
@@ -1225,6 +1266,18 @@
       if (dir==='down'){ speedSelect=Math.max(1,speedSelect-1); sfx('select'); drawLevelSelect(); }
       return;
     }
+    if (state==='settings'){
+      if (dir==='up' || dir==='down'){ settingsIndex = 0; sfx('select'); drawSettings(); }
+      if (dir==='left' || dir==='right'){
+        if (settingsIndex === 0){
+          slideMode = !slideMode;
+          localStorage.setItem('bg_slide', slideMode ? '1' : '0');
+          sfx('select');
+          drawSettings();
+        }
+      }
+      return;
+    }
     if (state==='play' && G){
       if (dir==='left') G.onLeft();
       if (dir==='right') G.onRight();
@@ -1234,14 +1287,16 @@
     }
   }
   function handleA(){
-    if (state==='menu'){ state='level'; sfx('select'); drawLevelSelect(); return; }
+    if (state==='menu'){ hideOverlay(); state='level'; sfx('select'); drawLevelSelect(); return; }
     if (state==='level'){ startPlay(); return; }
+    if (state==='settings'){ closeSettings(); return; }
     if (state==='play' && G){ G.onA(); G.draw(); }
     if (state==='over' || state==='pause') startPlay();
   }
   function handleB(){
     if (state==='play' && G){ G.onB(); G.draw(); }
     if (state==='menu' || state==='level') handleA();
+    if (state==='settings'){ closeSettings(); }
   }
   function togglePause(){
     if (state==='play'){
@@ -1254,6 +1309,8 @@
       state='level'; sfx('select'); drawLevelSelect();
     } else if (state==='level'){
       startPlay();
+    } else if (state==='settings'){
+      closeSettings();
     } else if (state==='over'){
       startPlay();
     }
@@ -1267,6 +1324,22 @@
     hideOverlay();
     sfx('start');
     lastTs = performance.now();
+  }
+  function openSettings(){
+    if (state === 'play' || state === 'pause') return; // don't open during game
+    prevStateBeforeSettings = state;
+    state = 'settings';
+    settingsIndex = 0;
+    hideOverlay();
+    sfx('select');
+    drawSettings();
+  }
+  function closeSettings(){
+    state = prevStateBeforeSettings || 'menu';
+    sfx('select');
+    if (state === 'menu') drawMenu();
+    else if (state === 'level') drawLevelSelect();
+    else drawMenu();
   }
   function doReset(){
     state='menu';
@@ -1287,11 +1360,15 @@
   bindTap(document.getElementById('btnB'), handleB);
   bindTap(document.getElementById('btnStart'), togglePause);
   bindTap(document.getElementById('btnReset'), doReset);
+  bindTap(document.getElementById('btnSettings'), openSettings);
   bindTap(document.getElementById('btnSound'), ()=>{
     soundOn = !soundOn;
+    localStorage.setItem('bg_sound', soundOn ? '1' : '0');
     document.getElementById('btnSound').textContent = soundOn ? 'SOUND' : 'MUTE';
     sfx('select');
   });
+  // reflect saved sound state on boot
+  document.getElementById('btnSound').textContent = soundOn ? 'SOUND' : 'MUTE';
 
   document.addEventListener('keydown', (e)=>{
     if (audioCtx && audioCtx.state==='suspended') audioCtx.resume();
@@ -1306,8 +1383,11 @@
       case 'r': case 'R': doReset(); break;
       case 'm': case 'M':
         soundOn=!soundOn;
+        localStorage.setItem('bg_sound', soundOn ? '1' : '0');
         document.getElementById('btnSound').textContent = soundOn ? 'SOUND' : 'MUTE';
         break;
+      case 'o': case 'O': case ',':
+        openSettings(); break;
     }
   });
 
