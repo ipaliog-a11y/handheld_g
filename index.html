@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>BRICK GAME</title>
+<title>BRICK GAME 9999 IN 1</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#c9c3b3">
 <meta name="mobile-web-app-capable" content="yes">
@@ -44,7 +44,7 @@
     gap: 10px;
   }
   .brand {
-    text-align: center; color: #5a5343; font-size: 18px; letter-spacing: 3px;
+    text-align: center; color: #5a5343; font-size: 16px; letter-spacing: 2px;
     text-shadow: 0 1px 0 rgba(255,255,255,0.3);
   }
   .screen-wrap {
@@ -66,7 +66,7 @@
     min-height: 0;
     position: relative;
   }
-  .board-area { flex: 1; display: flex; }
+  .board-area { flex: 1; display: flex; position: relative; }
   canvas#board { width: 100%; height: 100%; image-rendering: pixelated; }
   .side {
     width: 76px;
@@ -79,22 +79,26 @@
     padding: 4px;
     text-align: center;
   }
-  .panel .lbl { font-size: 12px; letter-spacing: 1px; opacity: 0.8; }
-  .panel .val { font-size: 22px; line-height: 1; }
-  canvas#next { width: 100%; height: 56px; image-rendering: pixelated; }
+  .panel .lbl { font-size: 11px; letter-spacing: 1px; opacity: 0.8; }
+  .panel .val { font-size: 20px; line-height: 1.1; }
+  canvas#next { width: 100%; height: 48px; image-rendering: pixelated; }
   .overlay {
     position: absolute; inset: 0;
     display: none;
     align-items: center; justify-content: center;
-    flex-direction: column; gap: 6px;
-    background: rgba(157,184,154,0.92);
+    flex-direction: column; gap: 4px;
+    background: rgba(157,184,154,0.94);
     color: var(--pixel-on);
-    font-size: 26px; text-align: center;
-    letter-spacing: 2px;
+    font-size: 22px; text-align: center;
+    letter-spacing: 1px;
+    z-index: 10;
+    padding: 8px;
   }
   .overlay.show { display: flex; }
-  .overlay .small { font-size: 15px; opacity: 0.85; }
-
+  .overlay .small { font-size: 14px; opacity: 0.85; line-height: 1.3; }
+  .overlay .tiny { font-size: 12px; opacity: 0.7; margin-top: 6px; }
+  .menu-list { font-size: 18px; line-height: 1.45; text-align: left; width: 100%; max-width: 200px; }
+  .menu-list .sel { background: var(--pixel-on); color: var(--screen-bg); padding: 0 4px; }
   .controls {
     display: flex; align-items: center; justify-content: space-between;
     padding: 6px 4px 2px;
@@ -114,6 +118,7 @@
   .dbtn:active, .dbtn.active-press { box-shadow: 0 1px 0 #111; transform: translateY(2px); background: linear-gradient(160deg, #565656, #2a2a2a); }
   .d-left  { left: 0; top: 38px; width: 38px; height: 40px; border-radius: 8px 2px 2px 8px;}
   .d-right { right: 0; top: 38px; width: 38px; height: 40px; border-radius: 2px 8px 8px 2px;}
+  .d-up    { left: 39px; top: 0; width: 38px; height: 38px; border-radius: 8px 8px 2px 2px;}
   .d-down  { left: 39px; bottom: 0; width: 38px; height: 38px; border-radius: 2px 2px 8px 8px;}
   .d-center{ left: 39px; top: 38px; width: 38px; height: 40px; background: var(--shell-dark); box-shadow:none; }
 
@@ -122,7 +127,8 @@
     width: 58px; height: 58px; border-radius: 50%;
     background: linear-gradient(160deg, #7a2b2b, #4a1616);
     box-shadow: 0 4px 0 #2a0d0d, inset 0 1px 1px rgba(255,255,255,0.25);
-    color: #f0d9d9; font-size: 15px; display: flex; align-items: center; justify-content: center;
+    color: #f0d9d9; font-size: 14px; display: flex; align-items: center; justify-content: center;
+    text-align: center; line-height: 1.1;
   }
   .round.blue {
     background: linear-gradient(160deg, #2b4a7a, #16294a);
@@ -132,12 +138,12 @@
   .round:active, .round.active-press { box-shadow: 0 1px 0 #2a0d0d; transform: translateY(3px); }
 
   .bottom-row {
-    display: flex; justify-content: center; gap: 14px; padding: 4px 0 2px;
+    display: flex; justify-content: center; gap: 12px; padding: 4px 0 2px; flex-wrap: wrap;
   }
   .pill {
     background: linear-gradient(160deg, #555, #2c2c2c);
-    color: #ccc; border-radius: 12px; padding: 6px 16px;
-    font-size: 13px; letter-spacing: 1px;
+    color: #ccc; border-radius: 12px; padding: 6px 12px;
+    font-size: 12px; letter-spacing: 1px;
     box-shadow: 0 3px 0 #111;
   }
   .pill:active { box-shadow: 0 1px 0 #111; transform: translateY(2px); }
@@ -145,14 +151,14 @@
 </head>
 <body>
 <div class="device">
-  <div class="brand">BRICK GAME &middot; 1 IN 1</div>
+  <div class="brand">BRICK GAME &middot; 9999 IN 1</div>
   <div class="screen-wrap">
     <div class="screen">
       <div class="board-area"><canvas id="board"></canvas></div>
       <div class="side">
         <div class="panel">
-          <div class="lbl">NEXT</div>
-          <canvas id="next" width="60" height="56"></canvas>
+          <div class="lbl" id="sideLabel1">NEXT</div>
+          <canvas id="next" width="60" height="48"></canvas>
         </div>
         <div class="panel">
           <div class="lbl">SCORE</div>
@@ -163,37 +169,77 @@
           <div class="val" id="level">1</div>
         </div>
         <div class="panel">
-          <div class="lbl">LINES</div>
-          <div class="val" id="lines">0</div>
+          <div class="lbl" id="sideLabel2">HI</div>
+          <div class="val" id="hiscore">0</div>
         </div>
       </div>
-      <div class="overlay" id="overlay">
-        <div id="overlayTitle">PAUSED</div>
-        <div class="small" id="overlaySub">tap start to resume</div>
+      <div class="overlay show" id="overlay">
+        <div id="overlayTitle">BRICK GAME</div>
+        <div class="small" id="overlaySub">9999 IN 1</div>
+        <div class="tiny" id="overlayTiny">press START</div>
       </div>
     </div>
   </div>
 
   <div class="bottom-row">
     <div class="pill" id="btnStart">START/PAUSE</div>
+    <div class="pill" id="btnSound">SOUND</div>
     <div class="pill" id="btnReset">RESET</div>
   </div>
   <div class="controls">
     <div class="dpad">
+      <div class="dbtn d-up" id="btnUp">▲</div>
       <div class="dbtn d-left" id="btnLeft">◀</div>
       <div class="dbtn d-right" id="btnRight">▶</div>
       <div class="dbtn d-down" id="btnDown">▼</div>
       <div class="dbtn d-center"></div>
     </div>
     <div class="abtns">
-      <div class="round" id="btnRotate">ROT</div>
-      <div class="round blue" id="btnDrop">DROP</div>
+      <div class="round" id="btnA">A<br>ROT</div>
+      <div class="round blue" id="btnB">B<br>DROP</div>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
+  // ========== AUDIO ==========
+  let soundOn = true;
+  const audioCtx = window.AudioContext ? new AudioContext() : null;
+  function beep(freq, dur, type='square', vol=0.08){
+    if (!soundOn || !audioCtx) return;
+    try {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.value = vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      o.stop(audioCtx.currentTime + dur);
+    } catch(e){}
+  }
+  function sfx(name){
+    if (!soundOn) return;
+    switch(name){
+      case 'move': beep(220, 0.04); break;
+      case 'rotate': beep(330, 0.06); break;
+      case 'drop': beep(110, 0.08); break;
+      case 'lock': beep(180, 0.1); break;
+      case 'line': beep(440, 0.12); setTimeout(()=>beep(550,0.12),80); setTimeout(()=>beep(660,0.15),160); break;
+      case 'score': beep(520, 0.08); break;
+      case 'die': beep(150, 0.2, 'sawtooth'); setTimeout(()=>beep(100,0.3,'sawtooth'),150); break;
+      case 'level': beep(400,0.1); setTimeout(()=>beep(500,0.1),100); setTimeout(()=>beep(600,0.15),200); break;
+      case 'select': beep(300, 0.05); break;
+      case 'start': beep(350,0.08); setTimeout(()=>beep(450,0.1),90); break;
+      case 'eat': beep(600, 0.07); break;
+      case 'shoot': beep(800, 0.04, 'square', 0.06); break;
+      case 'hit': beep(200, 0.08, 'triangle'); break;
+    }
+  }
+
+  // ========== CANVAS / RENDER ==========
   const COLS = 10, ROWS = 20;
   const boardCanvas = document.getElementById('board');
   const nextCanvas = document.getElementById('next');
@@ -201,11 +247,208 @@
   const nctx = nextCanvas.getContext('2d');
   const scoreEl = document.getElementById('score');
   const levelEl = document.getElementById('level');
-  const linesEl = document.getElementById('lines');
+  const hiscoreEl = document.getElementById('hiscore');
+  const sideLabel1 = document.getElementById('sideLabel1');
+  const sideLabel2 = document.getElementById('sideLabel2');
   const overlay = document.getElementById('overlay');
   const overlayTitle = document.getElementById('overlayTitle');
   const overlaySub = document.getElementById('overlaySub');
+  const overlayTiny = document.getElementById('overlayTiny');
 
+  let cellSize = 0;
+  let pixelOn, pixelOff;
+
+  function refreshColors(){
+    const s = getComputedStyle(document.documentElement);
+    pixelOn = s.getPropertyValue('--pixel-on').trim();
+    pixelOff = s.getPropertyValue('--pixel-off').trim();
+  }
+  refreshColors();
+
+  function resizeCanvas(){
+    const wrap = boardCanvas.parentElement;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    const size = Math.floor(Math.min(w / COLS, h / ROWS));
+    cellSize = Math.max(8, size);
+    boardCanvas.width = cellSize * COLS;
+    boardCanvas.height = cellSize * ROWS;
+    if (G && G.draw) G.draw();
+  }
+
+  function clearBoard(bgAlpha=1){
+    bctx.clearRect(0,0,boardCanvas.width, boardCanvas.height);
+    // faint LCD off-pixels
+    bctx.globalAlpha = 0.32 * bgAlpha;
+    bctx.fillStyle = pixelOff;
+    const pad = Math.max(1, cellSize*0.08);
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        bctx.fillRect(c*cellSize+pad, r*cellSize+pad, cellSize-pad*2, cellSize-pad*2);
+      }
+    }
+    bctx.globalAlpha = 1;
+  }
+
+  function drawCell(x, y, on=true, alpha=1){
+    if (y < 0 || y >= ROWS || x < 0 || x >= COLS) return;
+    const pad = Math.max(1, cellSize*0.08);
+    bctx.globalAlpha = alpha;
+    bctx.fillStyle = on ? pixelOn : 'transparent';
+    bctx.fillRect(x*cellSize+pad, y*cellSize+pad, cellSize-pad*2, cellSize-pad*2);
+    bctx.globalAlpha = 1;
+  }
+
+  function drawRect(x, y, w, h, on=true){
+    for (let dy=0; dy<h; dy++)
+      for (let dx=0; dx<w; dx++)
+        drawCell(x+dx, y+dy, on);
+  }
+
+  function drawGhostCell(x, y){
+    if (y < 0) return;
+    const pad = Math.max(1, cellSize*0.08);
+    bctx.save();
+    bctx.strokeStyle = pixelOn;
+    bctx.lineWidth = Math.max(1, cellSize*0.09);
+    bctx.globalAlpha = 0.55;
+    bctx.strokeRect(x*cellSize+pad+bctx.lineWidth/2, y*cellSize+pad+bctx.lineWidth/2,
+                    cellSize-pad*2-bctx.lineWidth, cellSize-pad*2-bctx.lineWidth);
+    bctx.restore();
+  }
+
+  // ========== HI-SCORES ==========
+  function loadHi(mode){ return parseInt(localStorage.getItem('bg_hi_'+mode) || '0', 10); }
+  function saveHi(mode, score){
+    const cur = loadHi(mode);
+    if (score > cur){ localStorage.setItem('bg_hi_'+mode, score); return score; }
+    return cur;
+  }
+
+  // ========== GAME STATE MACHINE ==========
+  const MODES = [
+    { id:'A', name:'BRICK',   desc:'Classic Tetris' },
+    { id:'B', name:'BRICK B', desc:'Tetris + Garbage' },
+    { id:'C', name:'RACE',    desc:'Dodge the cars' },
+    { id:'D', name:'SNAKE',   desc:'Eat & grow' },
+    { id:'E', name:'SHOOT',   desc:'Clear the blocks' },
+    { id:'F', name:'TANK',    desc:'Battle City lite' },
+    { id:'G', name:'BREAK',   desc:'Breakout' },
+    { id:'H', name:'FROG',    desc:'Cross the road' }
+  ];
+
+  let state = 'menu'; // menu | level | play | pause | over
+  let menuIndex = 0;
+  let levelSelect = 1;
+  let speedSelect = 1;
+  let currentMode = null;
+  let G = null; // current game instance
+  let hiscore = 0;
+  let animId = null;
+  let lastTs = 0;
+
+  function showOverlay(title, sub, tiny){
+    overlayTitle.textContent = title || '';
+    overlaySub.innerHTML = sub || '';
+    overlayTiny.textContent = tiny || '';
+    overlay.classList.add('show');
+  }
+  function hideOverlay(){ overlay.classList.remove('show'); }
+
+  function updateHUD(score, level, hi, label1='NEXT', label2='HI'){
+    scoreEl.textContent = score;
+    levelEl.textContent = level;
+    hiscoreEl.textContent = hi;
+    sideLabel1.textContent = label1;
+    sideLabel2.textContent = label2;
+  }
+
+  // ========== MENU ==========
+  function drawMenu(){
+    clearBoard();
+    // title
+    const lines = [
+      '  SELECT GAME',
+      '',
+    ];
+    MODES.forEach((m,i)=>{
+      const prefix = (i===menuIndex) ? '>' : ' ';
+      lines.push(`${prefix}${m.id} ${m.name}`);
+    });
+    lines.push('');
+    lines.push(' A/B or ▲▼');
+    lines.push(' START=OK');
+
+    bctx.fillStyle = pixelOn;
+    bctx.font = `${Math.floor(cellSize*1.1)}px VT323, monospace`;
+    bctx.textAlign = 'left';
+    bctx.textBaseline = 'top';
+    const startY = cellSize * 1;
+    lines.forEach((ln,i)=>{
+      bctx.fillText(ln, cellSize*0.4, startY + i*(cellSize*0.95));
+    });
+
+    // side panel
+    nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
+    updateHUD(0, levelSelect, loadHi(MODES[menuIndex].id), 'MODE', 'HI');
+  }
+
+  function drawLevelSelect(){
+    clearBoard();
+    const m = MODES[menuIndex];
+    const lines = [
+      `  GAME ${m.id}`,
+      `  ${m.name}`,
+      '',
+      ` LEVEL  ${levelSelect}`,
+      ` SPEED  ${speedSelect}`,
+      '',
+      ' ◀▶ level',
+      ' ▲▼ speed',
+      ' START play'
+    ];
+    bctx.fillStyle = pixelOn;
+    bctx.font = `${Math.floor(cellSize*1.15)}px VT323, monospace`;
+    bctx.textAlign = 'left';
+    bctx.textBaseline = 'top';
+    lines.forEach((ln,i)=>{
+      bctx.fillText(ln, cellSize*0.5, cellSize*2 + i*(cellSize*1.05));
+    });
+    nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
+    updateHUD(0, levelSelect, loadHi(m.id), 'LVL', 'HI');
+  }
+
+  // ========== INPUT ==========
+  const keys = {};
+  function bindHoldable(el, downFn, upFn){
+    let delayT=null, repT=null;
+    const start = (e)=>{
+      e.preventDefault();
+      if (delayT||repT) return;
+      el.classList.add('active-press');
+      downFn();
+      delayT = setTimeout(()=>{ repT = setInterval(downFn, 55); }, 220);
+    };
+    const stop = (e)=>{
+      if(e) e.preventDefault();
+      el.classList.remove('active-press');
+      clearTimeout(delayT); delayT=null;
+      clearInterval(repT); repT=null;
+      if (upFn) upFn();
+    };
+    el.addEventListener('touchstart', start, {passive:false});
+    el.addEventListener('touchend', stop, {passive:false});
+    el.addEventListener('touchcancel', stop, {passive:false});
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', stop);
+    el.addEventListener('mouseleave', stop);
+  }
+  function bindTap(el, fn){
+    const h = (e)=>{ e.preventDefault(); fn(); };
+    el.addEventListener('touchstart', h, {passive:false});
+    el.addEventListener('click', h);
+  }
+
+  // ========== TETRIS (A & B) ==========
   const SHAPES = {
     I: [[0,1],[1,1],[2,1],[3,1]],
     O: [[1,0],[2,0],[1,1],[2,1]],
@@ -217,305 +460,867 @@
   };
   const KEYS = Object.keys(SHAPES);
 
-  let grid, cur, curType, curRot, nextType, score, level, lines, dropInterval, dropTimer, running, paused, gameOver;
-  let cellSize = 0;
-
-  function newGrid(){ return Array.from({length: ROWS}, () => Array(COLS).fill(0)); }
-
-  function rotatePoints(pts, times){
-    let p = pts.map(pt => pt.slice());
-    for (let t = 0; t < times; t++){
-      p = p.map(([x,y]) => [3 - y, x]); // rotate within 4x4 box
-    }
-    return p;
-  }
-
-  function spawn(){
-    curType = nextType || KEYS[Math.floor(Math.random()*KEYS.length)];
-    nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
-    curRot = 0;
-    cur = rotatePoints(SHAPES[curType], 0).map(([x,y]) => ({x: x + 3, y: y}));
-    if (collides(cur)) { endGame(); }
-    drawNext();
-  }
-
-  function collides(points){
-    for (const p of points){
-      if (p.x < 0 || p.x >= COLS || p.y >= ROWS) return true;
-      if (p.y >= 0 && grid[p.y][p.x]) return true;
-    }
-    return false;
-  }
-
-  function merge(){
-    for (const p of cur){
-      if (p.y >= 0) grid[p.y][p.x] = curType;
-    }
-  }
-
-  function clearLines(){
-    let cleared = 0;
-    for (let r = ROWS - 1; r >= 0; r--){
-      if (grid[r].every(c => c)){
-        grid.splice(r,1);
-        grid.unshift(Array(COLS).fill(0));
-        cleared++;
-        r++;
-      }
-    }
-    if (cleared){
-      const points = [0,40,100,300,1200][cleared] * level;
-      score += points;
-      lines += cleared;
-      level = Math.floor(lines/10) + 1;
-      dropInterval = Math.max(120, 800 - (level-1)*60);
-      updateHUD();
-    }
-  }
-
-  function move(dx, dy){
-    const moved = cur.map(p => ({x: p.x+dx, y: p.y+dy}));
-    if (!collides(moved)){ cur = moved; return true; }
-    return false;
-  }
-
-  function rotate(){
-    const newRot = (curRot + 1) % 4;
-    const base = SHAPES[curType];
-    const pivotless = rotatePoints(base, newRot);
-    const minX = Math.min(...cur.map(p=>p.x));
-    const minY = Math.min(...cur.map(p=>p.y));
-    // find current bounding origin to keep rotation local
-    const origin = { x: Math.min(...cur.map(p=>p.x)) , y: Math.min(...cur.map(p=>p.y)) };
-    const testBase = rotatePoints(base, newRot).map(([x,y]) => ({x, y}));
-    // try placing rotated shape near current position with wall kicks
-    const kicks = [0,-1,1,-2,2];
-    for (const k of kicks){
-      const candidate = testBase.map(p => ({x: p.x + origin.x + k, y: p.y + origin.y}));
-      if (!collides(candidate)){ cur = candidate; curRot = newRot; return; }
-    }
-  }
-
-  function hardDrop(){
-    let d = 0;
-    while (move(0,1)) d++;
-    lockPiece();
-  }
-
-  function lockPiece(){
-    merge();
-    clearLines();
-    spawn();
-    resetDropTimer();
-  }
-
-  function tick(){
-    if (!move(0,1)) lockPiece();
-    draw();
-  }
-
-  function resetDropTimer(){
-    clearInterval(dropTimer);
-    dropTimer = setInterval(() => { if (running && !paused && !gameOver) tick(); }, dropInterval);
-  }
-
-  function resizeCanvas(){
-    const wrap = boardCanvas.parentElement;
-    const w = wrap.clientWidth, h = wrap.clientHeight;
-    const size = Math.floor(Math.min(w / COLS, h / ROWS));
-    cellSize = Math.max(8, size);
-    boardCanvas.width = cellSize * COLS;
-    boardCanvas.height = cellSize * ROWS;
-    draw();
-  }
-
-  function drawCell(ctx, x, y, size, on){
-    ctx.fillStyle = on ? getComputedStyle(document.documentElement).getPropertyValue('--pixel-on') : 'transparent';
-    const pad = Math.max(1, size*0.08);
-    ctx.fillRect(x+pad, y+pad, size-pad*2, size-pad*2);
-  }
-
-  function getGhost(){
-    if (!cur) return null;
-    let offset = 0;
-    while (!collides(cur.map(p => ({x: p.x, y: p.y + offset + 1})))) offset++;
-    return cur.map(p => ({x: p.x, y: p.y + offset}));
-  }
-
-  function drawGhostCell(ctx, x, y, size){
-    const pixelOn = getComputedStyle(document.documentElement).getPropertyValue('--pixel-on');
-    const pad = Math.max(1, size*0.08);
-    ctx.save();
-    ctx.strokeStyle = pixelOn;
-    ctx.lineWidth = Math.max(1, size*0.09);
-    ctx.globalAlpha = 0.6;
-    ctx.strokeRect(x+pad+ctx.lineWidth/2, y+pad+ctx.lineWidth/2, size-pad*2-ctx.lineWidth, size-pad*2-ctx.lineWidth);
-    ctx.restore();
-  }
-
-  function draw(){
-    if (!cellSize) return;
-    bctx.clearRect(0,0,boardCanvas.width, boardCanvas.height);
-    // faint off-pixels grid (authentic LCD ghosting)
-    bctx.globalAlpha = 0.35;
-    for (let r=0;r<ROWS;r++){
-      for (let c=0;c<COLS;c++){
-        bctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pixel-off');
-        const pad = Math.max(1, cellSize*0.08);
-        bctx.fillRect(c*cellSize+pad, r*cellSize+pad, cellSize-pad*2, cellSize-pad*2);
-      }
-    }
-    bctx.globalAlpha = 1;
-    // ghost piece (projected landing position)
-    const ghost = getGhost();
-    if (ghost){
-      for (const p of ghost){
-        if (p.y >= 0) drawGhostCell(bctx, p.x*cellSize, p.y*cellSize, cellSize);
-      }
-    }
-    // locked cells
-    for (let r=0;r<ROWS;r++){
-      for (let c=0;c<COLS;c++){
-        if (grid[r][c]) drawCell(bctx, c*cellSize, r*cellSize, cellSize, true);
-      }
-    }
-    // current piece
-    if (cur){
-      for (const p of cur){
-        if (p.y >= 0) drawCell(bctx, p.x*cellSize, p.y*cellSize, cellSize, true);
-      }
-    }
-  }
-
-  function drawNext(){
-    nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
-    const pts = SHAPES[nextType];
-    const size = 12;
-    const offX = (nextCanvas.width - 4*size)/2;
-    const offY = (nextCanvas.height - 2*size)/2;
-    nctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--pixel-on');
-    for (const [x,y] of pts){
-      const pad = 1;
-      nctx.fillRect(offX + x*size + pad, offY + y*size + pad, size-pad*2, size-pad*2);
-    }
-  }
-
-  function updateHUD(){
-    scoreEl.textContent = score;
-    levelEl.textContent = level;
-    linesEl.textContent = lines;
-  }
-
-  function showOverlay(title, sub){
-    overlayTitle.textContent = title;
-    overlaySub.textContent = sub || '';
-    overlay.classList.add('show');
-  }
-  function hideOverlay(){ overlay.classList.remove('show'); }
-
-  function startGame(){
-    grid = newGrid();
-    score = 0; level = 1; lines = 0; dropInterval = 800;
-    gameOver = false; paused = false; running = true;
-    nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
-    updateHUD();
-    spawn();
-    resetDropTimer();
-    hideOverlay();
-    draw();
-  }
-
-  function endGame(){
-    running = false; gameOver = true;
-    clearInterval(dropTimer);
-    showOverlay('GAME OVER', 'score ' + score + ' — reset to play again');
-  }
-
-  function togglePause(){
-    if (!running || gameOver) { startGame(); return; }
-    paused = !paused;
-    if (paused) showOverlay('PAUSED', 'tap start to resume');
-    else hideOverlay();
-  }
-
-  // input
-  const REPEAT_DELAY = 220; // ms before repeat kicks in
-  const REPEAT_RATE = 60;   // ms between repeats
-
-  function holdable(el, action){
-    let repeatTimer = null, delayTimer = null;
-    const fire = () => { if (running && !paused){ action(); draw(); } };
-    const start = (e) => {
-      e.preventDefault();
-      if (repeatTimer || delayTimer) return; // already active
-      el.classList.add('active-press');
-      fire();
-      delayTimer = setTimeout(() => {
-        repeatTimer = setInterval(fire, REPEAT_RATE);
-      }, REPEAT_DELAY);
+  function makeTetris(isB){
+    return {
+      grid: null, cur: null, curType: null, curRot: 0, nextType: null,
+      score: 0, level: 1, lines: 0, dropInterval: 800, dropAcc: 0,
+      gameOver: false,
+      init(){
+        this.grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+        this.score=0; this.lines=0;
+        this.level = levelSelect;
+        this.dropInterval = Math.max(80, 800 - (speedSelect-1)*70 - (this.level-1)*40);
+        this.dropAcc=0; this.gameOver=false;
+        if (isB){
+          // garbage rows
+          const garbage = Math.min(12, 2 + levelSelect*2);
+          for (let r=ROWS-garbage; r<ROWS; r++){
+            for (let c=0;c<COLS;c++) if (Math.random()>0.35) this.grid[r][c]='X';
+            // guarantee at least one hole
+            this.grid[r][Math.floor(Math.random()*COLS)] = 0;
+          }
+        }
+        this.nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
+        this.spawn();
+        updateHUD(this.score, this.level, hiscore, 'NEXT', 'HI');
+        this.drawNext();
+      },
+      spawn(){
+        this.curType = this.nextType;
+        this.nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
+        this.curRot = 0;
+        const base = SHAPES[this.curType];
+        this.cur = base.map(([x,y])=>({x:x+3, y:y}));
+        if (this.collides(this.cur)) this.die();
+        this.drawNext();
+      },
+      collides(pts){
+        for (const p of pts){
+          if (p.x<0||p.x>=COLS||p.y>=ROWS) return true;
+          if (p.y>=0 && this.grid[p.y][p.x]) return true;
+        }
+        return false;
+      },
+      rotate(){
+        const newRot = (this.curRot+1)%4;
+        let p = SHAPES[this.curType].map(pt=>pt.slice());
+        for (let t=0;t<newRot;t++) p = p.map(([x,y])=>[3-y,x]);
+        const origin = {x: Math.min(...this.cur.map(c=>c.x)), y: Math.min(...this.cur.map(c=>c.y))};
+        const kicks = [0,-1,1,-2,2];
+        for (const k of kicks){
+          const cand = p.map(([x,y])=>({x:x+origin.x+k, y:y+origin.y}));
+          if (!this.collides(cand)){ this.cur=cand; this.curRot=newRot; sfx('rotate'); return; }
+        }
+      },
+      move(dx,dy){
+        const moved = this.cur.map(p=>({x:p.x+dx,y:p.y+dy}));
+        if (!this.collides(moved)){ this.cur=moved; return true; }
+        return false;
+      },
+      hardDrop(){
+        let d=0;
+        while(this.move(0,1)) d++;
+        this.lock();
+        sfx('drop');
+      },
+      lock(){
+        for (const p of this.cur) if (p.y>=0) this.grid[p.y][p.x]=this.curType;
+        sfx('lock');
+        this.clearLines();
+        this.spawn();
+      },
+      clearLines(){
+        let cleared=0;
+        for (let r=ROWS-1;r>=0;r--){
+          if (this.grid[r].every(c=>c)){
+            this.grid.splice(r,1);
+            this.grid.unshift(Array(COLS).fill(0));
+            cleared++; r++;
+          }
+        }
+        if (cleared){
+          const pts = [0,40,100,300,1200][cleared]*this.level;
+          this.score += pts;
+          this.lines += cleared;
+          const newLev = Math.floor(this.lines/10)+levelSelect;
+          if (newLev > this.level){ this.level=newLev; sfx('level'); this.dropInterval=Math.max(80,this.dropInterval-40); }
+          else sfx('line');
+          hiscore = saveHi(currentMode.id, this.score);
+          updateHUD(this.score, this.level, hiscore, 'NEXT', 'HI');
+        }
+      },
+      die(){
+        this.gameOver=true;
+        sfx('die');
+        state='over';
+        showOverlay('GAME OVER', `SCORE ${this.score}`, 'press RESET or START');
+      },
+      update(dt){
+        if (this.gameOver) return;
+        this.dropAcc += dt;
+        if (this.dropAcc >= this.dropInterval){
+          this.dropAcc=0;
+          if (!this.move(0,1)) this.lock();
+        }
+      },
+      draw(){
+        clearBoard();
+        // locked
+        for (let r=0;r<ROWS;r++)
+          for (let c=0;c<COLS;c++)
+            if (this.grid[r][c]) drawCell(c,r,true);
+        // ghost
+        if (this.cur){
+          let off=0;
+          while(!this.collides(this.cur.map(p=>({x:p.x,y:p.y+off+1})))) off++;
+          this.cur.forEach(p=>drawGhostCell(p.x, p.y+off));
+          this.cur.forEach(p=>drawCell(p.x,p.y,true));
+        }
+      },
+      drawNext(){
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        const pts = SHAPES[this.nextType];
+        const size=11;
+        const offX=(nextCanvas.width-4*size)/2;
+        const offY=(nextCanvas.height-2*size)/2;
+        nctx.fillStyle=pixelOn;
+        pts.forEach(([x,y])=>{
+          nctx.fillRect(offX+x*size+1, offY+y*size+1, size-2, size-2);
+        });
+      },
+      onLeft(){ if(this.move(-1,0)) sfx('move'); },
+      onRight(){ if(this.move(1,0)) sfx('move'); },
+      onDown(){ if(!this.move(0,1)) this.lock(); else sfx('move'); },
+      onUp(){ this.rotate(); },
+      onA(){ this.rotate(); },
+      onB(){ this.hardDrop(); }
     };
-    const stop = (e) => {
-      if (e) e.preventDefault();
-      el.classList.remove('active-press');
-      clearTimeout(delayTimer); delayTimer = null;
-      clearInterval(repeatTimer); repeatTimer = null;
+  }
+
+  // ========== RACE (C) ==========
+  function makeRace(){
+    return {
+      playerLane: 1, // 0 1 2
+      cars: [], score:0, level:1, speed:0, acc:0, spawnAcc:0, gameOver:false,
+      lanes: [2, 4, 6], // x positions
+      init(){
+        this.playerLane=1; this.cars=[]; this.score=0;
+        this.level=levelSelect; this.speed = 1.2 + (speedSelect-1)*0.35 + (levelSelect-1)*0.15;
+        this.acc=0; this.spawnAcc=0; this.gameOver=false;
+        updateHUD(this.score, this.level, hiscore, 'CARS', 'HI');
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+      },
+      spawnCar(){
+        const lane = Math.floor(Math.random()*3);
+        // avoid instant collision
+        if (this.cars.some(c=>c.lane===lane && c.y < 4)) return;
+        this.cars.push({lane, y: -3, w:2, h:3});
+      },
+      update(dt){
+        if (this.gameOver) return;
+        this.acc += dt;
+        this.spawnAcc += dt;
+        const step = this.speed * (dt/16);
+        this.cars.forEach(c=> c.y += step);
+        // remove offscreen + score
+        this.cars = this.cars.filter(c=>{
+          if (c.y > ROWS){ this.score += 10; hiscore=saveHi('C',this.score); updateHUD(this.score,this.level,hiscore,'CARS','HI'); sfx('score'); return false; }
+          return true;
+        });
+        // spawn
+        const spawnRate = Math.max(400, 1200 - this.level*80 - speedSelect*50);
+        if (this.spawnAcc > spawnRate){ this.spawnAcc=0; this.spawnCar(); }
+        // level up
+        if (this.score > 0 && this.score % 200 === 0 && this.score/200 >= this.level){
+          this.level++; this.speed += 0.18; sfx('level');
+          updateHUD(this.score,this.level,hiscore,'CARS','HI');
+        }
+        // collision
+        const px = this.lanes[this.playerLane];
+        const py = ROWS-4;
+        for (const c of this.cars){
+          const cx = this.lanes[c.lane];
+          if (Math.abs(cx-px)<2 && c.y+c.h > py && c.y < py+3){
+            this.die(); break;
+          }
+        }
+      },
+      die(){
+        this.gameOver=true; sfx('die'); state='over';
+        showOverlay('CRASH!', `SCORE ${this.score}`, 'press RESET or START');
+      },
+      draw(){
+        clearBoard();
+        // road lines
+        bctx.globalAlpha=0.4;
+        for (let y=0;y<ROWS;y++){
+          if (Math.floor(y/2)%2===0){
+            drawCell(3,y,true,0.5);
+            drawCell(5,y,true,0.5);
+            drawCell(7,y,true,0.5);
+          }
+        }
+        bctx.globalAlpha=1;
+        // player car
+        const px = this.lanes[this.playerLane];
+        const py = ROWS-4;
+        drawRect(px, py, 2, 3, true);
+        // enemy cars
+        this.cars.forEach(c=>{
+          const cx = this.lanes[c.lane];
+          drawRect(cx, Math.floor(c.y), 2, 3, true);
+        });
+      },
+      onLeft(){ if(this.playerLane>0){ this.playerLane--; sfx('move'); } },
+      onRight(){ if(this.playerLane<2){ this.playerLane++; sfx('move'); } },
+      onDown(){}, onUp(){}, onA(){}, onB(){}
     };
-    el.addEventListener('touchstart', start, { passive: false });
-    el.addEventListener('touchend', stop, { passive: false });
-    el.addEventListener('touchcancel', stop, { passive: false });
-    el.addEventListener('mousedown', start);
-    el.addEventListener('mouseup', stop);
-    el.addEventListener('mouseleave', stop);
   }
 
-  function tapOnly(el, action){
-    const handler = (e) => { e.preventDefault(); if (running && !paused){ action(); draw(); } };
-    el.addEventListener('touchstart', handler, { passive: false });
-    el.addEventListener('click', handler);
+  // ========== SNAKE (D) ==========
+  function makeSnake(){
+    return {
+      body: [], dir: {x:1,y:0}, nextDir: {x:1,y:0}, food: null,
+      score:0, level:1, moveAcc:0, moveInterval:180, gameOver:false, grow:0,
+      init(){
+        this.body = [{x:4,y:10},{x:3,y:10},{x:2,y:10}];
+        this.dir={x:1,y:0}; this.nextDir={x:1,y:0};
+        this.score=0; this.level=levelSelect;
+        this.moveInterval = Math.max(60, 200 - (speedSelect-1)*18 - (levelSelect-1)*12);
+        this.moveAcc=0; this.gameOver=false; this.grow=0;
+        this.placeFood();
+        updateHUD(this.score, this.level, hiscore, 'FOOD', 'HI');
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+      },
+      placeFood(){
+        let tries=0;
+        do {
+          this.food = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)};
+          tries++;
+        } while (this.body.some(b=>b.x===this.food.x&&b.y===this.food.y) && tries<100);
+      },
+      update(dt){
+        if (this.gameOver) return;
+        this.moveAcc += dt;
+        if (this.moveAcc >= this.moveInterval){
+          this.moveAcc=0;
+          this.dir = {...this.nextDir};
+          const head = this.body[0];
+          const nh = {x: head.x+this.dir.x, y: head.y+this.dir.y};
+          // wall / self
+          if (nh.x<0||nh.x>=COLS||nh.y<0||nh.y>=ROWS || this.body.some(b=>b.x===nh.x&&b.y===nh.y)){
+            this.die(); return;
+          }
+          this.body.unshift(nh);
+          if (nh.x===this.food.x && nh.y===this.food.y){
+            this.score += 10;
+            this.grow += 1;
+            sfx('eat');
+            hiscore = saveHi('D', this.score);
+            if (this.score % 50 === 0){ this.level++; this.moveInterval=Math.max(50,this.moveInterval-12); sfx('level'); }
+            updateHUD(this.score, this.level, hiscore, 'FOOD', 'HI');
+            this.placeFood();
+          } else if (this.grow>0){ this.grow--; }
+          else this.body.pop();
+        }
+      },
+      die(){
+        this.gameOver=true; sfx('die'); state='over';
+        showOverlay('GAME OVER', `SCORE ${this.score}`, 'press RESET or START');
+      },
+      draw(){
+        clearBoard();
+        this.body.forEach((b,i)=> drawCell(b.x, b.y, true, i===0?1:0.85));
+        if (this.food) drawCell(this.food.x, this.food.y, true);
+      },
+      setDir(dx,dy){
+        // prevent reverse
+        if (this.dir.x + dx === 0 && this.dir.y + dy === 0) return;
+        this.nextDir = {x:dx, y:dy};
+      },
+      onLeft(){ this.setDir(-1,0); sfx('move'); },
+      onRight(){ this.setDir(1,0); sfx('move'); },
+      onUp(){ this.setDir(0,-1); sfx('move'); },
+      onDown(){ this.setDir(0,1); sfx('move'); },
+      onA(){}, onB(){}
+    };
   }
 
-  holdable(document.getElementById('btnLeft'), () => move(-1,0));
-  holdable(document.getElementById('btnRight'), () => move(1,0));
-  holdable(document.getElementById('btnDown'), () => { if(!move(0,1)) lockPiece(); });
-  tapOnly(document.getElementById('btnRotate'), () => rotate());
-  tapOnly(document.getElementById('btnDrop'), () => hardDrop());
+  // ========== SHOOT (E) ==========
+  function makeShoot(){
+    return {
+      playerX: 4, bullets: [], enemies: [], score:0, level:1,
+      acc:0, spawnAcc:0, gameOver:false, lives:3,
+      init(){
+        this.playerX=4; this.bullets=[]; this.enemies=[];
+        this.score=0; this.level=levelSelect; this.lives=3;
+        this.acc=0; this.spawnAcc=0; this.gameOver=false;
+        this.spawnWave();
+        updateHUD(this.score, this.level, hiscore, 'LIVE', 'HI');
+        this.drawSide();
+      },
+      drawSide(){
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        nctx.fillStyle=pixelOn;
+        nctx.font='16px VT323';
+        nctx.fillText('♥'.repeat(this.lives), 8, 28);
+      },
+      spawnWave(){
+        const rows = Math.min(4, 1+Math.floor(this.level/2));
+        for (let r=0;r<rows;r++){
+          for (let c=0;c<8;c++){
+            if (Math.random()>0.3) this.enemies.push({x:c+1, y:r+1, hp:1});
+          }
+        }
+      },
+      update(dt){
+        if (this.gameOver) return;
+        this.acc += dt; this.spawnAcc += dt;
+        // move bullets
+        this.bullets.forEach(b=> b.y -= 0.25*(dt/16)*(1+speedSelect*0.1));
+        this.bullets = this.bullets.filter(b=>b.y > -1);
+        // enemy descend slowly
+        if (this.spawnAcc > Math.max(800, 2500 - this.level*150 - speedSelect*100)){
+          this.spawnAcc=0;
+          this.enemies.forEach(e=> e.y += 1);
+          // check bottom
+          if (this.enemies.some(e=>e.y >= ROWS-2)){ this.hit(); }
+        }
+        // collisions bullet-enemy
+        for (let i=this.bullets.length-1;i>=0;i--){
+          const b=this.bullets[i];
+          for (let j=this.enemies.length-1;j>=0;j--){
+            const e=this.enemies[j];
+            if (Math.abs(b.x-e.x)<1 && Math.abs(b.y-e.y)<1){
+              this.enemies.splice(j,1);
+              this.bullets.splice(i,1);
+              this.score += 20;
+              sfx('hit');
+              hiscore=saveHi('E',this.score);
+              updateHUD(this.score,this.level,hiscore,'LIVE','HI');
+              break;
+            }
+          }
+        }
+        if (this.enemies.length===0){
+          this.level++; sfx('level');
+          updateHUD(this.score,this.level,hiscore,'LIVE','HI');
+          this.spawnWave();
+        }
+      },
+      hit(){
+        this.lives--;
+        this.drawSide();
+        sfx('die');
+        this.enemies = this.enemies.filter(e=>e.y < ROWS-3);
+        if (this.lives<=0){
+          this.gameOver=true; state='over';
+          showOverlay('GAME OVER', `SCORE ${this.score}`, 'press RESET or START');
+        }
+      },
+      shoot(){
+        if (this.bullets.length < 3){
+          this.bullets.push({x:this.playerX, y:ROWS-3});
+          sfx('shoot');
+        }
+      },
+      draw(){
+        clearBoard();
+        // player
+        drawRect(this.playerX, ROWS-2, 1, 2, true);
+        // bullets
+        this.bullets.forEach(b=> drawCell(Math.floor(b.x), Math.floor(b.y), true));
+        // enemies
+        this.enemies.forEach(e=> drawCell(e.x, Math.floor(e.y), true));
+      },
+      onLeft(){ if(this.playerX>0){ this.playerX--; sfx('move'); } },
+      onRight(){ if(this.playerX<COLS-1){ this.playerX++; sfx('move'); } },
+      onDown(){}, onUp(){ this.shoot(); },
+      onA(){ this.shoot(); }, onB(){ this.shoot(); }
+    };
+  }
 
-  document.getElementById('btnStart').addEventListener('touchstart', e=>{e.preventDefault(); togglePause();});
-  document.getElementById('btnReset').addEventListener('touchstart', e=>{e.preventDefault(); startGame();});
-  document.getElementById('btnStart').addEventListener('click', togglePause);
-  document.getElementById('btnReset').addEventListener('click', startGame);
+  // ========== TANK (F) ==========
+  function makeTank(){
+    return {
+      px:4, py:16, pDir:0, // 0u 1r 2d 3l
+      bullets: [], enemies: [], score:0, level:1, lives:3,
+      acc:0, eAcc:0, gameOver:false, spawnCD:0,
+      dirs: [{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}],
+      init(){
+        this.px=4; this.py=16; this.pDir=0;
+        this.bullets=[]; this.enemies=[]; this.score=0;
+        this.level=levelSelect; this.lives=3;
+        this.acc=0; this.eAcc=0; this.gameOver=false; this.spawnCD=0;
+        this.spawnEnemy();
+        updateHUD(this.score, this.level, hiscore, 'LIVE', 'HI');
+        this.drawSide();
+      },
+      drawSide(){
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        nctx.fillStyle=pixelOn; nctx.font='16px VT323';
+        nctx.fillText('♥'.repeat(this.lives), 8, 28);
+      },
+      spawnEnemy(){
+        if (this.enemies.length >= 3+Math.floor(this.level/2)) return;
+        const side = Math.floor(Math.random()*3);
+        let x,y;
+        if (side===0){ x=Math.floor(Math.random()*COLS); y=0; }
+        else if (side===1){ x=0; y=Math.floor(Math.random()*8); }
+        else { x=COLS-1; y=Math.floor(Math.random()*8); }
+        this.enemies.push({x, y, dir:Math.floor(Math.random()*4), moveCD:0, shootCD:40+Math.random()*60});
+      },
+      update(dt){
+        if (this.gameOver) return;
+        this.acc += dt; this.eAcc += dt; this.spawnCD += dt;
+        // player bullets
+        this.bullets.forEach(b=>{
+          b.x += this.dirs[b.dir].x * 0.35*(dt/16);
+          b.y += this.dirs[b.dir].y * 0.35*(dt/16);
+        });
+        this.bullets = this.bullets.filter(b=>b.x>=-1&&b.x<COLS+1&&b.y>=-1&&b.y<ROWS+1);
+        // enemies AI
+        if (this.eAcc > Math.max(100, 280 - this.level*15 - speedSelect*20)){
+          this.eAcc=0;
+          this.enemies.forEach(e=>{
+            e.moveCD--; e.shootCD--;
+            if (e.moveCD<=0){
+              if (Math.random()<0.3) e.dir = Math.floor(Math.random()*4);
+              const nx=e.x+this.dirs[e.dir].x, ny=e.y+this.dirs[e.dir].y;
+              if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS-3) { e.x=nx; e.y=ny; }
+              else e.dir = Math.floor(Math.random()*4);
+              e.moveCD=3+Math.floor(Math.random()*4);
+            }
+            if (e.shootCD<=0){
+              this.bullets.push({x:e.x, y:e.y, dir:e.dir, enemy:true});
+              e.shootCD=50+Math.random()*80;
+            }
+          });
+        }
+        // spawn more
+        if (this.spawnCD > Math.max(1500, 4000-this.level*200)){ this.spawnCD=0; this.spawnEnemy(); }
+        // collisions
+        for (let i=this.bullets.length-1;i>=0;i--){
+          const b=this.bullets[i];
+          if (!b.enemy){
+            for (let j=this.enemies.length-1;j>=0;j--){
+              const e=this.enemies[j];
+              if (Math.abs(b.x-e.x)<0.8 && Math.abs(b.y-e.y)<0.8){
+                this.enemies.splice(j,1); this.bullets.splice(i,1);
+                this.score+=50; sfx('hit');
+                hiscore=saveHi('F',this.score);
+                if (this.score%200===0){ this.level++; sfx('level'); }
+                updateHUD(this.score,this.level,hiscore,'LIVE','HI');
+                break;
+              }
+            }
+          } else {
+            if (Math.abs(b.x-this.px)<0.8 && Math.abs(b.y-this.py)<0.8){
+              this.bullets.splice(i,1);
+              this.lives--; this.drawSide(); sfx('die');
+              if (this.lives<=0){ this.gameOver=true; state='over';
+                showOverlay('GAME OVER', `SCORE ${this.score}`, 'press RESET or START'); }
+            }
+          }
+        }
+      },
+      shoot(){
+        if (this.bullets.filter(b=>!b.enemy).length < 2){
+          this.bullets.push({x:this.px, y:this.py, dir:this.pDir, enemy:false});
+          sfx('shoot');
+        }
+      },
+      moveP(dx,dy){
+        const nx=this.px+dx, ny=this.py+dy;
+        if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS){ this.px=nx; this.py=ny; sfx('move'); }
+      },
+      draw(){
+        clearBoard();
+        // base protection line
+        for (let c=0;c<COLS;c++) drawCell(c, ROWS-1, true, 0.35);
+        // player
+        drawCell(this.px, this.py, true);
+        // simple dir indicator
+        const d=this.dirs[this.pDir];
+        drawCell(this.px+d.x, this.py+d.y, true, 0.5);
+        // enemies
+        this.enemies.forEach(e=> drawCell(Math.floor(e.x), Math.floor(e.y), true));
+        // bullets
+        this.bullets.forEach(b=> drawCell(Math.floor(b.x), Math.floor(b.y), true));
+      },
+      onLeft(){ this.pDir=3; this.moveP(-1,0); },
+      onRight(){ this.pDir=1; this.moveP(1,0); },
+      onUp(){ this.pDir=0; this.moveP(0,-1); },
+      onDown(){ this.pDir=2; this.moveP(0,1); },
+      onA(){ this.shoot(); }, onB(){ this.shoot(); }
+    };
+  }
 
-  document.addEventListener('keydown', (e) => {
-    if (!running || paused){
-      if (e.key === 'Enter' || e.key === ' ') togglePause();
+  // ========== BREAKOUT (G) ==========
+  function makeBreak(){
+    return {
+      paddleX: 3, ballX:5, ballY:12, ballDX:0.12, ballDY:-0.12,
+      bricks: [], score:0, level:1, lives:3, acc:0, gameOver:false, started:false,
+      init(){
+        this.paddleX=3; this.ballX=5; this.ballY=14;
+        this.ballDX=0.11 + speedSelect*0.02; this.ballDY=-0.11 - speedSelect*0.02;
+        this.score=0; this.level=levelSelect; this.lives=3;
+        this.acc=0; this.gameOver=false; this.started=false;
+        this.buildBricks();
+        updateHUD(this.score, this.level, hiscore, 'LIVE', 'HI');
+        this.drawSide();
+      },
+      drawSide(){
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        nctx.fillStyle=pixelOn; nctx.font='16px VT323';
+        nctx.fillText('♥'.repeat(this.lives), 8, 28);
+      },
+      buildBricks(){
+        this.bricks=[];
+        const rows = Math.min(6, 2+this.level);
+        for (let r=0;r<rows;r++)
+          for (let c=0;c<COLS;c++)
+            if (Math.random()>0.15) this.bricks.push({x:c, y:r+1, hp:1});
+      },
+      update(dt){
+        if (this.gameOver || !this.started) return;
+        const sp = 0.9 + this.level*0.08;
+        this.ballX += this.ballDX * sp * (dt/16);
+        this.ballY += this.ballDY * sp * (dt/16);
+        // walls
+        if (this.ballX < 0){ this.ballX=0; this.ballDX*=-1; sfx('hit'); }
+        if (this.ballX > COLS-1){ this.ballX=COLS-1; this.ballDX*=-1; sfx('hit'); }
+        if (this.ballY < 0){ this.ballY=0; this.ballDY*=-1; sfx('hit'); }
+        // paddle
+        if (this.ballY >= ROWS-3 && this.ballY < ROWS-1 &&
+            this.ballX >= this.paddleX-0.5 && this.ballX <= this.paddleX+3.5){
+          this.ballDY = -Math.abs(this.ballDY);
+          const hitPos = (this.ballX - this.paddleX) / 3;
+          this.ballDX = (hitPos - 0.5) * 0.22;
+          sfx('hit');
+        }
+        // bottom
+        if (this.ballY > ROWS){
+          this.lives--; this.drawSide(); sfx('die');
+          this.started=false;
+          this.ballX = this.paddleX+1; this.ballY=14;
+          this.ballDY=-Math.abs(this.ballDY);
+          if (this.lives<=0){ this.gameOver=true; state='over';
+            showOverlay('GAME OVER', `SCORE ${this.score}`, 'press RESET or START'); }
+        }
+        // bricks
+        for (let i=this.bricks.length-1;i>=0;i--){
+          const br=this.bricks[i];
+          if (Math.abs(this.ballX-br.x)<0.8 && Math.abs(this.ballY-br.y)<0.8){
+            this.bricks.splice(i,1);
+            this.ballDY *= -1;
+            this.score += 15;
+            sfx('hit');
+            hiscore=saveHi('G',this.score);
+            updateHUD(this.score,this.level,hiscore,'LIVE','HI');
+            break;
+          }
+        }
+        if (this.bricks.length===0){
+          this.level++; sfx('level');
+          this.buildBricks();
+          this.started=false;
+          this.ballX=this.paddleX+1; this.ballY=14;
+          updateHUD(this.score,this.level,hiscore,'LIVE','HI');
+        }
+      },
+      draw(){
+        clearBoard();
+        // bricks
+        this.bricks.forEach(br=> drawCell(br.x, br.y, true));
+        // paddle
+        drawRect(this.paddleX, ROWS-2, 3, 1, true);
+        // ball
+        drawCell(Math.floor(this.ballX), Math.floor(this.ballY), true);
+      },
+      onLeft(){ if(this.paddleX>0){ this.paddleX--; if(!this.started) this.ballX=this.paddleX+1; sfx('move'); } },
+      onRight(){ if(this.paddleX<COLS-3){ this.paddleX++; if(!this.started) this.ballX=this.paddleX+1; sfx('move'); } },
+      onDown(){}, onUp(){ if(!this.started){ this.started=true; sfx('start'); } },
+      onA(){ if(!this.started){ this.started=true; sfx('start'); } },
+      onB(){ if(!this.started){ this.started=true; sfx('start'); } }
+    };
+  }
+
+  // ========== FROGGER (H) ==========
+  function makeFrog(){
+    return {
+      fx:4, fy:18, score:0, level:1, lives:3, acc:0, gameOver:false,
+      cars: [], logs: [], home: [false,false,false,false,false],
+      init(){
+        this.fx=4; this.fy=18; this.score=0; this.level=levelSelect;
+        this.lives=3; this.acc=0; this.gameOver=false;
+        this.home=[false,false,false,false,false];
+        this.buildTraffic();
+        updateHUD(this.score, this.level, hiscore, 'LIVE', 'HI');
+        this.drawSide();
+      },
+      drawSide(){
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        nctx.fillStyle=pixelOn; nctx.font='16px VT323';
+        nctx.fillText('♥'.repeat(this.lives), 8, 28);
+      },
+      buildTraffic(){
+        this.cars=[]; this.logs=[];
+        // cars rows 12-16
+        for (let r=0;r<4;r++){
+          const y = 15-r;
+          const dir = r%2===0 ? 1 : -1;
+          const sp = (0.06 + this.level*0.01 + speedSelect*0.008) * dir;
+          for (let i=0;i<3;i++){
+            this.cars.push({x: Math.random()*COLS, y, w:2, sp, dir});
+          }
+        }
+        // logs rows 3-8
+        for (let r=0;r<4;r++){
+          const y = 7-r;
+          const dir = r%2===0 ? -1 : 1;
+          const sp = (0.05 + this.level*0.008 + speedSelect*0.006) * dir;
+          for (let i=0;i<2;i++){
+            this.logs.push({x: Math.random()*COLS, y, w:3, sp, dir});
+          }
+        }
+      },
+      update(dt){
+        if (this.gameOver) return;
+        const t = dt/16;
+        this.cars.forEach(c=>{
+          c.x += c.sp * t;
+          if (c.dir>0 && c.x > COLS) c.x = -c.w;
+          if (c.dir<0 && c.x < -c.w) c.x = COLS;
+        });
+        this.logs.forEach(l=>{
+          l.x += l.sp * t;
+          if (l.dir>0 && l.x > COLS) l.x = -l.w;
+          if (l.dir<0 && l.x < -l.w) l.x = COLS;
+        });
+        // frog on log?
+        if (this.fy >= 3 && this.fy <= 7){
+          let onLog=false;
+          for (const l of this.logs){
+            if (this.fy===l.y && this.fx >= l.x-0.3 && this.fx <= l.x+l.w-0.3){
+              this.fx += l.sp * t;
+              onLog=true; break;
+            }
+          }
+          if (!onLog || this.fx<0 || this.fx>=COLS) this.die();
+        }
+        // car collision
+        if (this.fy >= 12 && this.fy <= 16){
+          for (const c of this.cars){
+            if (this.fy===c.y && this.fx >= c.x-0.3 && this.fx <= c.x+c.w-0.3){ this.die(); break; }
+          }
+        }
+        // home
+        if (this.fy <= 1){
+          const slot = Math.floor(this.fx / 2);
+          if (slot>=0 && slot<5 && !this.home[slot] && this.fx%2 < 1.5){
+            this.home[slot]=true;
+            this.score += 100;
+            sfx('score');
+            hiscore=saveHi('H',this.score);
+            updateHUD(this.score,this.level,hiscore,'LIVE','HI');
+            this.fx=4; this.fy=18;
+            if (this.home.every(h=>h)){
+              this.level++; sfx('level');
+              this.home=[false,false,false,false,false];
+              this.buildTraffic();
+              updateHUD(this.score,this.level,hiscore,'LIVE','HI');
+            }
+          } else this.die();
+        }
+      },
+      die(){
+        this.lives--; this.drawSide(); sfx('die');
+        this.fx=4; this.fy=18;
+        if (this.lives<=0){
+          this.gameOver=true; state='over';
+          showOverlay('GAME OVER', `SCORE ${this.score}`, 'press RESET or START');
+        }
+      },
+      move(dx,dy){
+        const nx=this.fx+dx, ny=this.fy+dy;
+        if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS){ this.fx=nx; this.fy=ny; sfx('move');
+          if (dy<0) { this.score+=5; updateHUD(this.score,this.level,hiscore,'LIVE','HI'); }
+        }
+      },
+      draw(){
+        clearBoard();
+        // water
+        for (let y=2;y<=8;y++) for (let x=0;x<COLS;x++) drawCell(x,y,true,0.15);
+        // road
+        for (let y=12;y<=16;y++) for (let x=0;x<COLS;x++) drawCell(x,y,true,0.12);
+        // homes
+        for (let i=0;i<5;i++){
+          if (this.home[i]) drawCell(i*2, 0, true);
+          else drawCell(i*2, 0, true, 0.3);
+        }
+        // logs
+        this.logs.forEach(l=> drawRect(Math.floor(l.x), l.y, l.w, 1, true));
+        // cars
+        this.cars.forEach(c=> drawRect(Math.floor(c.x), c.y, c.w, 1, true));
+        // frog
+        drawCell(Math.floor(this.fx), this.fy, true);
+      },
+      onLeft(){ this.move(-1,0); },
+      onRight(){ this.move(1,0); },
+      onUp(){ this.move(0,-1); },
+      onDown(){ this.move(0,1); },
+      onA(){ this.move(0,-1); }, onB(){ this.move(0,-1); }
+    };
+  }
+
+  // ========== FACTORY ==========
+  function createGame(modeId){
+    switch(modeId){
+      case 'A': return makeTetris(false);
+      case 'B': return makeTetris(true);
+      case 'C': return makeRace();
+      case 'D': return makeSnake();
+      case 'E': return makeShoot();
+      case 'F': return makeTank();
+      case 'G': return makeBreak();
+      case 'H': return makeFrog();
+      default: return makeTetris(false);
+    }
+  }
+
+  // ========== MAIN LOOP ==========
+  function loop(ts){
+    if (!lastTs) lastTs=ts;
+    const dt = Math.min(50, ts-lastTs);
+    lastTs=ts;
+    if (state==='play' && G){
+      G.update(dt);
+      G.draw();
+    } else if (state==='menu') drawMenu();
+    else if (state==='level') drawLevelSelect();
+    animId = requestAnimationFrame(loop);
+  }
+
+  // ========== CONTROLS DISPATCH ==========
+  function handleDir(dir){
+    if (state==='menu'){
+      if (dir==='up'){ menuIndex = (menuIndex-1+MODES.length)%MODES.length; sfx('select'); drawMenu(); }
+      if (dir==='down'){ menuIndex = (menuIndex+1)%MODES.length; sfx('select'); drawMenu(); }
       return;
     }
+    if (state==='level'){
+      if (dir==='left'){ levelSelect=Math.max(1,levelSelect-1); sfx('select'); drawLevelSelect(); }
+      if (dir==='right'){ levelSelect=Math.min(9,levelSelect+1); sfx('select'); drawLevelSelect(); }
+      if (dir==='up'){ speedSelect=Math.min(9,speedSelect+1); sfx('select'); drawLevelSelect(); }
+      if (dir==='down'){ speedSelect=Math.max(1,speedSelect-1); sfx('select'); drawLevelSelect(); }
+      return;
+    }
+    if (state==='play' && G){
+      if (dir==='left') G.onLeft();
+      if (dir==='right') G.onRight();
+      if (dir==='up') G.onUp();
+      if (dir==='down') G.onDown();
+      G.draw();
+    }
+  }
+  function handleA(){
+    if (state==='menu'){ state='level'; sfx('select'); drawLevelSelect(); return; }
+    if (state==='level'){ startPlay(); return; }
+    if (state==='play' && G){ G.onA(); G.draw(); }
+    if (state==='over' || state==='pause') startPlay();
+  }
+  function handleB(){
+    if (state==='play' && G){ G.onB(); G.draw(); }
+    if (state==='menu' || state==='level') handleA();
+  }
+  function togglePause(){
+    if (state==='play'){
+      state='pause';
+      showOverlay('PAUSED', MODES[menuIndex].name, 'press START to resume');
+    } else if (state==='pause'){
+      state='play'; hideOverlay(); lastTs=0;
+    } else if (state==='menu'){
+      state='level'; sfx('select'); drawLevelSelect();
+    } else if (state==='level'){
+      startPlay();
+    } else if (state==='over'){
+      startPlay();
+    }
+  }
+  function startPlay(){
+    currentMode = MODES[menuIndex];
+    hiscore = loadHi(currentMode.id);
+    G = createGame(currentMode.id);
+    G.init();
+    state='play';
+    hideOverlay();
+    sfx('start');
+    lastTs=0;
+  }
+  function doReset(){
+    if (state==='play' || state==='pause' || state==='over'){
+      state='menu';
+      G=null;
+      showOverlay('BRICK GAME', '9999 IN 1', 'press START');
+      drawMenu();
+    } else {
+      state='menu';
+      drawMenu();
+    }
+  }
+
+  // bind buttons
+  bindHoldable(document.getElementById('btnLeft'), ()=>handleDir('left'));
+  bindHoldable(document.getElementById('btnRight'), ()=>handleDir('right'));
+  bindHoldable(document.getElementById('btnUp'), ()=>handleDir('up'));
+  bindHoldable(document.getElementById('btnDown'), ()=>handleDir('down'));
+  bindTap(document.getElementById('btnA'), handleA);
+  bindTap(document.getElementById('btnB'), handleB);
+  bindTap(document.getElementById('btnStart'), togglePause);
+  bindTap(document.getElementById('btnReset'), doReset);
+  bindTap(document.getElementById('btnSound'), ()=>{
+    soundOn = !soundOn;
+    document.getElementById('btnSound').textContent = soundOn ? 'SOUND' : 'MUTE';
+    sfx('select');
+  });
+
+  document.addEventListener('keydown', (e)=>{
+    if (audioCtx && audioCtx.state==='suspended') audioCtx.resume();
     switch(e.key){
-      case 'ArrowLeft': move(-1,0); draw(); break;
-      case 'ArrowRight': move(1,0); draw(); break;
-      case 'ArrowDown': if(!move(0,1)) lockPiece(); draw(); break;
-      case 'ArrowUp': rotate(); draw(); break;
-      case ' ': hardDrop(); draw(); break;
-      case 'p': case 'P': togglePause(); break;
+      case 'ArrowLeft': case 'a': case 'A': handleDir('left'); break;
+      case 'ArrowRight': case 'd': case 'D': handleDir('right'); break;
+      case 'ArrowUp': case 'w': case 'W': handleDir('up'); break;
+      case 'ArrowDown': case 's': case 'S': handleDir('down'); break;
+      case ' ': case 'Enter': togglePause(); break;
+      case 'z': case 'Z': case 'j': case 'J': handleA(); break;
+      case 'x': case 'X': case 'k': case 'K': handleB(); break;
+      case 'r': case 'R': doReset(); break;
+      case 'm': case 'M':
+        soundOn=!soundOn;
+        document.getElementById('btnSound').textContent = soundOn ? 'SOUND' : 'MUTE';
+        break;
     }
   });
 
+  // prevent scroll
+  document.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
   window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+  window.addEventListener('orientationchange', ()=>setTimeout(resizeCanvas,200));
 
-  // prevent page scroll/zoom on touch
-  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
-
+  // boot
   resizeCanvas();
-  showOverlay('BRICK GAME', 'tap START to play');
+  showOverlay('BRICK GAME', '9999 IN 1', 'press START');
+  state='menu';
+  requestAnimationFrame(loop);
+
+  // PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
 })();
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
-
 </script>
 </body>
 </html>

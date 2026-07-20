@@ -1,7 +1,7 @@
 {
-  "name": "Brick Game",
+  "name": "Brick Game 9999 in 1",
   "short_name": "Brick Game",
-  "description": "Classic handheld LCD-style Tetris",
+  "description": "Classic handheld LCD multi-game: Tetris, Race, Snake, Shoot, Tank, Breakout, Frogger",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
