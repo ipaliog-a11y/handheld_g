@@ -1,4 +1,4 @@
-const CACHE_NAME = 'brick-game-9999-v8';
+const CACHE_NAME = 'brick-game-9999-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -26,7 +26,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  // Cache the VT323 web font on first load so it also works offline
+  const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.match(event.request).then((cached) => cached || fetch(event.request).then((res) => {
+      if (isFont && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+      }
+      return res;
+    }))
   );
 });
