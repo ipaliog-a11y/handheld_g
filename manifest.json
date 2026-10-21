@@ -1,11 +1,11 @@
 {
   "name": "Brick Game 9999 in 1",
   "short_name": "Brick Game",
-  "description": "Classic handheld LCD multi-game: Tetris, Race, Snake, Shoot, Tank, Breakout, Frogger",
+  "description": "Classic handheld LCD multi-game: 16 games including falling bricks, race, snake, shooter, tank, brick breaker, frog crossing, stacker, runner, pong, invaders, gems and maze",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#6b6558",
   "theme_color": "#c9c3b3",
   "icons": [
