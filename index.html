@@ -331,6 +331,7 @@
       live: 'LIVE',
       cars: 'CARS',
       food: 'FOOD',
+      fuel: 'FUEL',
       set: 'SET',
       on: 'ON ',
       off: 'OFF',
@@ -381,6 +382,7 @@
       live: 'ΖΩΕΣ',
       cars: 'ΑΥΤ/ΤΑ',
       food: 'ΦΑΓΗΤΟ',
+      fuel: 'ΚΑΥΣ',
       set: 'SET',
       on: 'ΝΑΙ',
       off: 'ΟΧΙ',
@@ -652,7 +654,24 @@
       desc:{en:'Brick breaker', el:'Σπάσε τουβλα'}, icon:['######','#.##.#','......','..#...','.###..'] },
     { id:'H', name:'FROG',    make:()=>makeFrog(), btn:['b_jump','b_jump'],
       desc:{en:'Cross road+river', el:'Περάσε δρόμο'}, icon:['#.#.#.','......','###.##','..#...','......'] },
+    { id:'I', name:'STACK',   make:()=>makeStack(), btn:['b_stop','b_stop'],
+      desc:{en:'Stack the rows', el:'Στοίβαξε'}, icon:['..##..','..##..','.###..','.####.','######'] },
+    { id:'J', name:'RUNNER',  make:()=>makeRunner(), btn:['b_jump','b_jump'],
+      desc:{en:'Jump & duck', el:'Άλμα & σκύψιμο'}, icon:['......','.#....','.#..#.','.#..#.','######'] },
+    { id:'K', name:'FILL',    make:()=>makeFill(), btn:['b_fire','b_fire'],
+      desc:{en:'Fill the rows', el:'Γέμισε γραμμές'}, icon:['######','##.###','......','..#...','.###..'] },
+    { id:'L', name:'PONG',    make:()=>makePong(), btn:['b_none','b_none'],
+      desc:{en:'Beat the CPU', el:'Νίκα τον CPU'}, icon:['.###..','......','...#..','......','..###.'] },
+    { id:'M', name:'INVADE',  make:()=>makeInvaders(), btn:['b_fire','b_fire'],
+      desc:{en:'Stop the aliens', el:'Σταμάτα εξωγ.'}, icon:['#.#.#.','.#.#.#','......','..#...','.###..'] },
+    { id:'N', name:'GEMS',    make:()=>makeGems(), btn:['b_swap','b_drop'], flick:true,
+      desc:{en:'Match 3 gems', el:'Ταίριαξε 3'}, icon:['...#..','...#..','...#..','#..##.','##.###'] },
+    { id:'O', name:'MAZE',    make:()=>makeMaze(), btn:['b_none','b_none'],
+      desc:{en:'Eat all dots', el:'Φάε τις τελείες'}, icon:['######','#....#','#.##.#','#..#.#','######'] },
+    { id:'P', name:'RALLY',   make:()=>makeRally(), btn:['b_turbo','b_turbo'],
+      desc:{en:'Race with fuel', el:'Αγώνας+καύσιμα'}, icon:['..#...','.###..','..#...','.#.#..','......'] },
   ];
+  const MODES_BY_ID = Object.fromEntries(MODES.map(m => [m.id, m]));
   function modeDesc(m){ return (m.desc && (m.desc[lang] || m.desc.en)) || ''; }
 
   let state = 'menu'; // menu | level | play | pause | over | settings
@@ -1649,6 +1668,726 @@
       onUp(){ this.move(0,-1); },
       onDown(){ this.move(0,1); },
       onA(){ this.move(0,-1); }, onB(){ this.move(0,-1); }
+    };
+  }
+
+  // ========== STACK (I) ==========
+  // A sliding row: stop it on top of the one below. Overhang is cut off.
+  function makeStack(){
+    return {
+      rows: [], x: 0, w: 4, dir: 1, acc: 0, score: 0, level: 1, gameOver: false, flash: 0, cut: [],
+      init(){
+        this.level = levelSelect; this.score = 0; this.gameOver = false;
+        this.newRound();
+        updateHUD(this.score, this.level, hiscore, t('mode'), t('hi'));
+        drawIcon(nctx, nextCanvas, MODES_BY_ID.I.icon);
+      },
+      newRound(){
+        this.rows = []; this.w = 4; this.x = 0; this.dir = 1; this.acc = 0; this.cut = [];
+      },
+      interval(){ return Math.max(40, 170 - speedSelect*10 - this.level*8 - this.rows.length*4); },
+      update(dt){
+        if (this.gameOver) return;
+        this.acc += dt;
+        if (this.flash > 0) this.flash -= dt;
+        while (this.acc >= this.interval()){
+          this.acc -= this.interval();
+          if (this.x + this.dir < 0 || this.x + this.w + this.dir > COLS) this.dir *= -1;
+          this.x += this.dir;
+        }
+      },
+      stop(){
+        if (this.gameOver) return;
+        const below = this.rows[this.rows.length - 1];
+        let x = this.x, w = this.w;
+        this.cut = [];
+        if (below){
+          const l = Math.max(x, below.x), r = Math.min(x + w, below.x + below.w);
+          for (let c = x; c < x + w; c++) if (c < l || c >= r) this.cut.push(c);
+          x = l; w = r - l;
+        }
+        if (w <= 0){ this.w = 0; endGame(this); return; }
+        this.rows.push({x, w});
+        this.w = w; this.flash = 180;
+        this.score += 10 * w * this.level;
+        sfx(this.cut.length ? 'hit' : 'lock');
+        if (this.rows.length >= ROWS){
+          this.score += 500 * this.level;
+          this.level++; sfx('level');
+          this.newRound();
+        } else {
+          this.x = Math.random() < 0.5 ? 0 : COLS - this.w;
+          this.dir = this.x === 0 ? 1 : -1;
+        }
+        updateHUD(this.score, this.level, liveHi(this.score), t('mode'), t('hi'));
+      },
+      draw(){
+        clearBoard();
+        this.rows.forEach((r, i) => drawRect(r.x, ROWS - 1 - i, r.w, 1, true));
+        if (this.flash > 0) this.cut.forEach(c => drawCell(c, ROWS - this.rows.length, true, 0.4));
+        if (!this.gameOver) drawRect(this.x, ROWS - 1 - this.rows.length, this.w, 1, true);
+      },
+      onLeft(){}, onRight(){},
+      onUp(){ this.stop(); }, onDown(){ this.stop(); },
+      onA(){ this.stop(); }, onB(){ this.stop(); }
+    };
+  }
+
+  // ========== RUNNER (J) ==========
+  // One-button runner: jump over blocks, duck (down) under birds.
+  function makeRunner(){
+    const GROUND = ROWS - 2;   // row the runner's feet stand on
+    const G_ACC = 0.00009;     // gravity, cells/ms²
+    const JUMP_V = Math.sqrt(2 * G_ACC * 3.6);
+    return {
+      h: 0, vy: 0, duck: 0, obs: [], dist: 0, speed: 0, spawnIn: 0, score: 0, level: 1, gameOver: false, scroll: 0,
+      init(){
+        this.h = 0; this.vy = 0; this.duck = 0; this.obs = []; this.dist = 0; this.scroll = 0;
+        this.level = levelSelect; this.score = 0; this.gameOver = false;
+        this.speed = 0.0065 + speedSelect*0.0006 + this.level*0.0005;
+        this.spawnIn = 900;
+        updateHUD(0, this.level, hiscore, t('mode'), t('hi'));
+        drawIcon(nctx, nextCanvas, MODES_BY_ID.J.icon);
+      },
+      jump(){
+        if (this.h === 0 && !this.gameOver){ this.vy = JUMP_V; this.duck = 0; sfx('jump'); }
+      },
+      update(dt){
+        if (this.gameOver) return;
+        // physics
+        if (this.h > 0 || this.vy > 0){
+          this.h += this.vy * dt; this.vy -= G_ACC * dt;
+          if (this.h <= 0){ this.h = 0; this.vy = 0; }
+        }
+        if (this.duck > 0) this.duck -= dt;
+        // world
+        const dx = this.speed * dt;
+        this.scroll += dx;
+        this.obs.forEach(o => o.x -= dx);
+        this.obs = this.obs.filter(o => o.x + o.w > -1);
+        this.spawnIn -= dt;
+        if (this.spawnIn <= 0){
+          const bird = this.level >= 2 && Math.random() < 0.3;
+          if (bird) this.obs.push({x: COLS, w: 2, y: 1.2, hgt: 1, bird: true});
+          else { const tall = Math.random() < 0.4; this.obs.push({x: COLS, w: Math.random() < 0.3 ? 2 : 1, y: 0, hgt: tall ? 2 : 1}); }
+          this.spawnIn = Math.max(450, 1500 - this.level*80) + Math.random()*900;
+        }
+        // score / level
+        this.dist += dx;
+        const s = Math.floor(this.dist * 2);
+        if (s !== this.score){
+          this.score = s;
+          if (this.score > 0 && this.score % 150 === 0){ this.level++; this.speed += 0.0008; sfx('level'); }
+          updateHUD(this.score, this.level, liveHi(this.score), t('mode'), t('hi'));
+        }
+        // collision: runner occupies column 1, heights [h, h+size)
+        const size = this.duck > 0 && this.h === 0 ? 1 : 2;
+        for (const o of this.obs){
+          if (o.x < 1.8 && o.x + o.w > 1.2 && this.h < o.y + o.hgt - 0.15 && this.h + size > o.y + 0.15){
+            endGame(this, 'crash'); return;
+          }
+        }
+      },
+      draw(){
+        clearBoard();
+        // scrolling ground
+        const off = Math.floor(this.scroll) % 3;
+        for (let c = 0; c < COLS; c++) drawCell(c, GROUND + 1, true, (c + off) % 3 === 0 ? 0.35 : 0.7);
+        // runner
+        const feet = GROUND - Math.round(this.h);
+        if (this.duck > 0 && this.h === 0){ drawCell(1, feet); drawCell(2, feet, true, 0.6); }
+        else { drawCell(1, feet); drawCell(1, feet - 1); }
+        // obstacles
+        this.obs.forEach(o => {
+          const x = Math.round(o.x);
+          for (let i = 0; i < o.w; i++) for (let j = 0; j < o.hgt; j++)
+            drawCell(x + i, GROUND - Math.round(o.y) - j, true, o.bird && i === 1 ? 0.6 : 1);
+        });
+      },
+      onLeft(){}, onRight(){},
+      onUp(){ this.jump(); }, onA(){ this.jump(); }, onB(){ this.jump(); },
+      onDown(){ if (this.h === 0) this.duck = 450; else this.vy = Math.min(this.vy, -JUMP_V); }
+    };
+  }
+
+  // ========== FILL (K) ==========
+  // Rows creep down from the top; shoot single blocks up to complete them.
+  function makeFill(){
+    return {
+      grid: null, px: 4, acc: 0, score: 0, level: 1, lines: 0, gameOver: false, shots: [],
+      init(){
+        this.grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+        this.level = levelSelect; this.score = 0; this.lines = 0; this.gameOver = false;
+        this.px = 4; this.acc = 0; this.shots = [];
+        for (let i = 0; i < 3 + Math.min(5, this.level); i++) this.pushRow();
+        updateHUD(0, this.level, hiscore, t('mode'), t('hi'));
+        drawIcon(nctx, nextCanvas, MODES_BY_ID.K.icon);
+      },
+      newRow(){
+        const row = Array(COLS).fill(1);
+        const gaps = 1 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < gaps; i++) row[Math.floor(Math.random()*COLS)] = 0;
+        return row;
+      },
+      pushRow(){
+        if (this.grid[ROWS-1].some(Boolean)) return;
+        this.grid.pop();
+        this.grid.unshift(this.newRow());
+      },
+      interval(){ return Math.max(1400, 6500 - this.level*450 - speedSelect*250); },
+      update(dt){
+        if (this.gameOver) return;
+        this.shots.forEach(s => s.life -= dt);
+        this.shots = this.shots.filter(s => s.life > 0);
+        this.acc += dt;
+        if (this.acc >= this.interval()){
+          this.acc = 0;
+          this.pushRow();
+          if (this.dangerHit()) endGame(this);
+        }
+      },
+      dangerHit(){ return this.grid[ROWS-3].some(Boolean); },
+      shoot(){
+        if (this.gameOver) return;
+        const x = this.px;
+        if (this.grid[ROWS-3][x]) return;
+        let r = ROWS - 3;
+        while (r > 0 && !this.grid[r-1][x]) r--;
+        this.grid[r][x] = 1;
+        this.shots.push({x, from: r, life: 90});
+        this.score += 2;
+        sfx('shoot');
+        if (this.grid[r].every(Boolean)){
+          // full row: remove it and let the rows below slide back up
+          this.grid.splice(r, 1);
+          this.grid.push(Array(COLS).fill(0));
+          this.lines++;
+          this.score += 100 * this.level;
+          sfx('line');
+          if (this.lines % 8 === 0){ this.level++; sfx('level'); }
+        }
+        if (this.dangerHit()) { endGame(this); return; }
+        updateHUD(this.score, this.level, liveHi(this.score), t('mode'), t('hi'));
+      },
+      draw(){
+        clearBoard();
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (this.grid[r][c]) drawCell(c, r);
+        // danger line
+        for (let c = 0; c < COLS; c++) if (!this.grid[ROWS-3][c]) drawCell(c, ROWS-3, true, 0.1);
+        this.shots.forEach(s => { for (let y = s.from + 1; y < ROWS - 2; y++) drawCell(s.x, y, true, 0.35); });
+        drawCell(this.px, ROWS-2);
+        drawRect(this.px-1, ROWS-1, 3, 1);
+      },
+      onLeft(){ if (this.px > 0){ this.px--; sfx('move'); } },
+      onRight(){ if (this.px < COLS-1){ this.px++; sfx('move'); } },
+      onUp(){ this.shoot(); }, onDown(){},
+      onA(){ this.shoot(); }, onB(){ this.shoot(); }
+    };
+  }
+
+  // ========== PONG (L) ==========
+  function makePong(){
+    const PW = 3;
+    return {
+      px: 3, cx: 3, bx: 4.5, by: 10, vx: 0, vy: 0, serveIn: 0, cpuAcc: 0,
+      score: 0, level: 1, lives: 3, rally: 0, gameOver: false,
+      init(){
+        this.level = levelSelect; this.score = 0; this.lives = 3; this.gameOver = false;
+        this.px = 3; this.cx = 3;
+        this.serve(1);
+        updateHUD(0, this.level, hiscore, t('live'), t('hi'));
+        this.drawSide();
+      },
+      drawSide(){ drawHearts(this.lives); },
+      baseSpeed(){ return 0.0085 + speedSelect*0.0008 + this.level*0.0006; },
+      serve(dirY){
+        this.bx = 4.5; this.by = 10; this.rally = 0;
+        const s = this.baseSpeed();
+        this.vx = (Math.random() < 0.5 ? -1 : 1) * s * 0.5;
+        this.vy = dirY * s;
+        this.serveIn = 700;
+      },
+      update(dt){
+        if (this.gameOver) return;
+        // CPU paddle tracks the ball (imperfectly)
+        this.cpuAcc += dt;
+        const cpuStep = Math.max(70, 190 - this.level*14);
+        if (this.cpuAcc >= cpuStep){
+          this.cpuAcc = 0;
+          const target = (this.vy < 0 ? this.bx : 4.5) - PW/2 + (Math.random() - 0.5) * 1.5;
+          if (this.cx < target - 0.5 && this.cx < COLS - PW) this.cx++;
+          else if (this.cx > target + 0.5 && this.cx > 0) this.cx--;
+        }
+        if (this.serveIn > 0){ this.serveIn -= dt; return; }
+        this.bx += this.vx * dt; this.by += this.vy * dt;
+        if (this.bx < 0){ this.bx = 0; this.vx = Math.abs(this.vx); sfx('move'); }
+        if (this.bx > COLS - 1){ this.bx = COLS - 1; this.vx = -Math.abs(this.vx); sfx('move'); }
+        // player paddle (row ROWS-1), CPU paddle (row 0)
+        if (this.vy > 0 && this.by >= ROWS - 2 && this.by < ROWS - 1 + 0.5){
+          if (this.bx + 0.5 >= this.px && this.bx + 0.5 <= this.px + PW){ this.bounce(this.px, -1); this.score += 5; this.hud(); }
+        }
+        if (this.vy < 0 && this.by <= 1 && this.by > -0.5){
+          if (this.bx + 0.5 >= this.cx && this.bx + 0.5 <= this.cx + PW) this.bounce(this.cx, 1);
+        }
+        if (this.by > ROWS){
+          this.lives--; this.drawSide(); sfx('die');
+          if (this.lives <= 0){ endGame(this); return; }
+          this.serve(1);
+        } else if (this.by < -1){
+          this.score += 100 * this.level; sfx('score');
+          if (this.score >= this.level * 600){ this.level++; sfx('level'); }
+          this.hud();
+          this.serve(-1);
+        }
+      },
+      bounce(padX, dirY){
+        const hit = (this.bx + 0.5 - padX) / PW - 0.5;     // -0.5 .. 0.5
+        this.rally++;
+        const s = this.baseSpeed() * (1 + Math.min(0.6, this.rally * 0.04));
+        this.vx = hit * s * 1.6;
+        this.vy = dirY * s;
+        this.by = dirY < 0 ? ROWS - 2 : 1;
+        sfx('hit');
+      },
+      hud(){ updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi')); },
+      draw(){
+        clearBoard();
+        for (let c = 0; c < COLS; c += 2) drawCell(c, ROWS/2, true, 0.25);
+        drawRect(this.cx, 0, PW, 1);
+        drawRect(this.px, ROWS - 1, PW, 1);
+        if (this.serveIn <= 0 || Math.floor(this.serveIn / 120) % 2) drawCell(Math.round(this.bx), Math.round(this.by));
+      },
+      onLeft(){ if (this.px > 0){ this.px--; } },
+      onRight(){ if (this.px < COLS - PW){ this.px++; } },
+      onUp(){}, onDown(){}, onA(){}, onB(){}
+    };
+  }
+
+  // ========== INVADERS (M) ==========
+  function makeInvaders(){
+    return {
+      px: 4, shots: [], bombs: [], aliens: [], gx: 0, gy: 0, gdir: 1, acc: 0, bombAcc: 0,
+      score: 0, level: 1, lives: 3, gameOver: false, shields: [],
+      init(){
+        this.level = levelSelect; this.score = 0; this.lives = 3; this.gameOver = false;
+        this.px = 4; this.shots = []; this.bombs = [];
+        this.wave();
+        updateHUD(0, this.level, hiscore, t('live'), t('hi'));
+        this.drawSide();
+      },
+      drawSide(){ drawHearts(this.lives); },
+      wave(){
+        this.aliens = [];
+        const rows = Math.min(4, 2 + Math.floor(this.level / 3));
+        for (let r = 0; r < rows; r++) for (let c = 0; c < 6; c++) this.aliens.push({x: c, y: r});
+        this.gx = 0; this.gy = 1 + Math.min(4, Math.floor((this.level - 1) / 2)); this.gdir = 1; this.acc = 0;
+        this.shields = [];
+        [1, 4, 7].forEach(x => { this.shields.push({x, y: ROWS - 5}); this.shields.push({x: x + 1, y: ROWS - 5}); });
+      },
+      interval(){
+        const total = this.aliens.length || 1;
+        return Math.max(90, 750 - this.level*45 - speedSelect*35 - (24 - total) * 18);
+      },
+      update(dt){
+        if (this.gameOver) return;
+        // march
+        this.acc += dt;
+        if (this.acc >= this.interval()){
+          this.acc = 0;
+          const minX = Math.min(...this.aliens.map(a => a.x)) + this.gx;
+          const maxX = Math.max(...this.aliens.map(a => a.x)) + this.gx;
+          if ((this.gdir > 0 && maxX >= COLS - 1) || (this.gdir < 0 && minX <= 0)){ this.gy++; this.gdir *= -1; }
+          else this.gx += this.gdir;
+          sfx('move');
+          const lowest = Math.max(...this.aliens.map(a => a.y)) + this.gy;
+          if (lowest >= ROWS - 2){ endGame(this); return; }
+        }
+        // alien bombs
+        this.bombAcc += dt;
+        if (this.bombAcc > Math.max(450, 1600 - this.level*110)){
+          this.bombAcc = 0;
+          // a random alien at the bottom of its column fires
+          const cols = {};
+          this.aliens.forEach(a => { if (!cols[a.x] || cols[a.x].y < a.y) cols[a.x] = a; });
+          const shooters = Object.values(cols);
+          if (shooters.length){ const s = shooters[Math.floor(Math.random()*shooters.length)]; this.bombs.push({x: s.x + this.gx, y: s.y + this.gy + 1}); }
+        }
+        const bs = 0.010 * dt, ss = 0.022 * dt;
+        this.bombs.forEach(b => b.y += bs);
+        this.shots.forEach(s => s.y -= ss);
+        // shots vs aliens / shields / bombs
+        this.shots = this.shots.filter(s => {
+          if (s.y < 0) return false;
+          const ai = this.aliens.findIndex(a => a.x + this.gx === s.x && Math.abs(a.y + this.gy - s.y) < 0.7);
+          if (ai >= 0){
+            this.aliens.splice(ai, 1); this.score += 20 * this.level; sfx('hit');
+            updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi'));
+            return false;
+          }
+          const si = this.shields.findIndex(b => b.x === s.x && Math.abs(b.y - s.y) < 0.7);
+          if (si >= 0){ this.shields.splice(si, 1); return false; }
+          const bi = this.bombs.findIndex(b => b.x === s.x && Math.abs(b.y - s.y) < 0.9);
+          if (bi >= 0){ this.bombs.splice(bi, 1); this.score += 5; return false; }
+          return true;
+        });
+        this.bombs = this.bombs.filter(b => {
+          if (b.y >= ROWS) return false;
+          const si = this.shields.findIndex(s => s.x === b.x && Math.abs(s.y - b.y) < 0.7);
+          if (si >= 0){ this.shields.splice(si, 1); return false; }
+          if (b.x === this.px && b.y >= ROWS - 2){
+            this.lives--; this.drawSide(); sfx('die');
+            if (this.lives <= 0) endGame(this);
+            return false;
+          }
+          return true;
+        });
+        if (this.gameOver) return;
+        if (!this.aliens.length){ this.level++; sfx('level'); this.wave(); updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi')); }
+      },
+      fire(){
+        if (this.shots.length < 2){ this.shots.push({x: this.px, y: ROWS - 3}); sfx('shoot'); }
+      },
+      draw(){
+        clearBoard();
+        const blink = Math.floor(performance.now() / 300) % 2;
+        this.aliens.forEach(a => drawCell(a.x + this.gx, a.y + this.gy, true, (a.y % 2) === blink ? 1 : 0.8));
+        this.shields.forEach(s => drawCell(s.x, s.y, true, 0.5));
+        this.shots.forEach(s => drawCell(s.x, Math.floor(s.y)));
+        this.bombs.forEach(b => drawCell(b.x, Math.floor(b.y), true, 0.7));
+        drawCell(this.px, ROWS - 2);
+        drawRect(this.px - 1, ROWS - 1, 3, 1);
+      },
+      onLeft(){ if (this.px > 0) this.px--; },
+      onRight(){ if (this.px < COLS - 1) this.px++; },
+      onUp(){ this.fire(); }, onDown(){},
+      onA(){ this.fire(); }, onB(){ this.fire(); }
+    };
+  }
+
+  // ========== GEMS (N) ==========
+  // Falling trio of gems in a 6-wide well; line up 3+ of a kind in any direction.
+  function makeGems(){
+    const L = 2, R = 7;                 // well columns L..R
+    const W = R - L + 1;
+    function drawGem(x, y, type, alpha=1){
+      if (y < 0) return;
+      const pad = Math.max(1, cellSize*0.08), s = cellSize - pad*2;
+      const X = x*cellSize + pad, Y = y*cellSize + pad;
+      bctx.save(); bctx.globalAlpha = alpha; bctx.fillStyle = pixelOn; bctx.strokeStyle = pixelOn;
+      bctx.lineWidth = Math.max(1, cellSize*0.12);
+      if (type === 1) bctx.fillRect(X, Y, s, s);                                   // solid
+      else if (type === 2) bctx.strokeRect(X + bctx.lineWidth/2, Y + bctx.lineWidth/2, s - bctx.lineWidth, s - bctx.lineWidth); // hollow
+      else if (type === 3) bctx.fillRect(X + s*0.28, Y + s*0.28, s*0.44, s*0.44);  // dot
+      else if (type === 4){ bctx.fillRect(X + s*0.38, Y, s*0.24, s); bctx.fillRect(X, Y + s*0.38, s, s*0.24); } // cross
+      bctx.restore();
+    }
+    return {
+      grid: null, x: 0, y: 0, gems: [1,2,3], nextGems: [1,2,3], acc: 0, interval: 800,
+      score: 0, level: 1, cleared: 0, gameOver: false, flash: null, flashT: 0, chainMsg: '',
+      rnd(){ return 1 + Math.floor(Math.random() * Math.min(4, 3 + (this.level >= 3 ? 1 : 0))); },
+      init(){
+        this.grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+        this.level = levelSelect; this.score = 0; this.cleared = 0; this.gameOver = false;
+        this.interval = Math.max(140, 850 - (speedSelect-1)*60 - (this.level-1)*40);
+        this.nextGems = [this.rnd(), this.rnd(), this.rnd()];
+        this.spawn();
+        updateHUD(0, this.level, hiscore, t('next'), t('hi'));
+      },
+      spawn(){
+        this.gems = this.nextGems;
+        this.nextGems = [this.rnd(), this.rnd(), this.rnd()];
+        this.x = L + Math.floor(W/2); this.y = -2; this.acc = 0;
+        if (this.grid[0][this.x]) { endGame(this); return; }
+        this.drawNext();
+      },
+      drawNext(){
+        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        nctx.fillStyle = pixelOn; nctx.strokeStyle = pixelOn; nctx.lineWidth = 2;
+        this.nextGems.forEach((g, i) => {
+          const X = 24, Y = 3 + i*14, s = 12;
+          if (g === 1) nctx.fillRect(X, Y, s, s);
+          else if (g === 2) nctx.strokeRect(X+1, Y+1, s-2, s-2);
+          else if (g === 3) nctx.fillRect(X+3, Y+3, s-6, s-6);
+          else { nctx.fillRect(X+4, Y, 4, s); nctx.fillRect(X, Y+4, s, 4); }
+        });
+      },
+      free(x, y){ return x >= L && x <= R && y < ROWS && (y < 0 || !this.grid[y][x]); },
+      fits(x, y){ return this.free(x, y) && this.free(x, y+1) && this.free(x, y+2); },
+      update(dt){
+        if (this.gameOver) return;
+        if (this.flashT > 0){
+          this.flashT -= dt;
+          if (this.flashT <= 0) this.collapse();
+          return;
+        }
+        this.acc += dt;
+        if (this.acc >= this.interval){ this.acc = 0; if (!this.step()) this.lock(); }
+      },
+      step(){ if (this.fits(this.x, this.y + 1)){ this.y++; return true; } return false; },
+      lock(){
+        if (this.y < 0){ endGame(this); return; }
+        for (let i = 0; i < 3; i++) this.grid[this.y + i][this.x] = this.gems[i];
+        sfx('lock');
+        this.chain = 0;
+        this.findMatches();
+      },
+      findMatches(){
+        const hit = new Set();
+        const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+        for (let y = 0; y < ROWS; y++) for (let x = L; x <= R; x++){
+          const g = this.grid[y][x]; if (!g) continue;
+          for (const [dx, dy] of dirs){
+            let n = 1;
+            while (this.grid[y + dy*n] && this.grid[y + dy*n][x + dx*n] === g && x + dx*n <= R) n++;
+            if (n >= 3) for (let k = 0; k < n; k++) hit.add((y + dy*k) * COLS + (x + dx*k));
+          }
+        }
+        if (!hit.size){ this.spawn(); return; }
+        this.chain++;
+        this.flash = hit; this.flashT = 260;
+        this.score += hit.size * 10 * this.level * this.chain;
+        this.cleared += hit.size;
+        sfx(this.chain > 1 ? 'level' : 'line');
+        if (this.cleared >= this.level * 30){ this.level++; this.interval = Math.max(120, this.interval - 60); sfx('level'); }
+        updateHUD(this.score, this.level, liveHi(this.score), t('next'), t('hi'));
+      },
+      collapse(){
+        this.flash.forEach(i => { this.grid[Math.floor(i / COLS)][i % COLS] = 0; });
+        this.flash = null;
+        for (let x = L; x <= R; x++){
+          const col = [];
+          for (let y = ROWS - 1; y >= 0; y--) if (this.grid[y][x]) col.push(this.grid[y][x]);
+          for (let y = ROWS - 1, k = 0; y >= 0; y--, k++) this.grid[y][x] = col[k] || 0;
+        }
+        this.findMatches();
+      },
+      draw(){
+        clearBoard();
+        for (let y = 0; y < ROWS; y++){ drawCell(L - 1, y, true, 0.3); drawCell(R + 1, y, true, 0.3); }
+        const blink = Math.floor(performance.now() / 70) % 2;
+        for (let y = 0; y < ROWS; y++) for (let x = L; x <= R; x++){
+          const g = this.grid[y][x];
+          if (g && !(this.flash && this.flash.has(y*COLS + x) && blink)) drawGem(x, y, g);
+        }
+        if (!this.flash && !this.gameOver){
+          for (let i = 0; i < 3; i++) drawGem(this.x, this.y + i, this.gems[i]);
+        }
+      },
+      busy(){ return this.gameOver || this.flash; },
+      onLeft(){ if (!this.busy() && this.fits(this.x - 1, this.y)){ this.x--; sfx('move'); } },
+      onRight(){ if (!this.busy() && this.fits(this.x + 1, this.y)){ this.x++; sfx('move'); } },
+      onDown(){ if (this.busy()) return; if (!this.step()) this.lock(); else this.score += 1; },
+      onUp(){ this.onA(); },
+      onA(){ if (this.busy()) return; this.gems.unshift(this.gems.pop()); sfx('rotate'); },
+      onB(){ if (this.busy()) return; while (this.step()) this.score += 2; this.lock(); sfx('drop'); }
+    };
+  }
+
+  // ========== MAZE (O) ==========
+  // Eat every dot; chasers cost a life unless a power dot (o) is active.
+  const MAZE = [
+    '##########',
+    '#o......o#',
+    '#.##..##.#',
+    '#.#....#.#',
+    '#...##...#',
+    '##.#..#.##',
+    '#........#',
+    '#.##..##.#',
+    '#.#.GG.#.#',
+    '#...##...#',
+    '##.#..#.##',
+    '#........#',
+    '#.##..##.#',
+    '#o.#..#.o#',
+    '#...##...#',
+    '#.#....#.#',
+    '#.#.##.#.#',
+    '#....P...#',
+    '#.##..##.#',
+    '##########',
+  ];
+  function makeMaze(){
+    const DIRS = [{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
+    const wall = (x, y) => y < 0 || y >= ROWS || x < 0 || x >= COLS || MAZE[y][x] === '#';
+    return {
+      dots: null, left: 0, p: null, ghosts: [], score: 0, level: 1, lives: 3, gameOver: false,
+      pAcc: 0, gAcc: 0, power: 0, combo: 0, startDelay: 0,
+      init(){
+        this.level = levelSelect; this.score = 0; this.lives = 3; this.gameOver = false;
+        this.board();
+        updateHUD(0, this.level, hiscore, t('live'), t('hi'));
+        this.drawSide();
+      },
+      drawSide(){ drawHearts(this.lives); },
+      board(){
+        this.dots = MAZE.map(row => [...row].map(ch => ch === '.' ? 1 : ch === 'o' ? 2 : 0));
+        this.left = this.dots.flat().filter(Boolean).length;
+        this.place();
+      },
+      place(){
+        this.ghosts = [];
+        MAZE.forEach((row, y) => [...row].forEach((ch, x) => {
+          if (ch === 'P') this.p = {x, y, dir: 3, want: 3};
+          if (ch === 'G') this.ghosts.push({x, y, home: {x, y}, dir: 0, eaten: 0});
+        }));
+        this.power = 0; this.startDelay = 900;
+      },
+      pStep(){ return Math.max(95, 210 - speedSelect*10 - this.level*5); },
+      gStep(){ return this.power > 0 ? 330 : Math.max(120, 300 - speedSelect*12 - this.level*15); },
+      update(dt){
+        if (this.gameOver) return;
+        if (this.startDelay > 0){ this.startDelay -= dt; return; }
+        if (this.power > 0) this.power -= dt;
+        this.pAcc += dt; this.gAcc += dt;
+        if (this.pAcc >= this.pStep()){ this.pAcc = 0; this.movePlayer(); }
+        if (this.gameOver) return;
+        if (this.gAcc >= this.gStep()){ this.gAcc = 0; this.ghosts.forEach(g => this.moveGhost(g)); }
+        this.collide();
+      },
+      movePlayer(){
+        const p = this.p, w = DIRS[p.want];
+        if (!wall(p.x + w.x, p.y + w.y)) p.dir = p.want;
+        const m = DIRS[p.dir];
+        if (!wall(p.x + m.x, p.y + m.y)){ p.x += m.x; p.y += m.y; }
+        const v = this.dots[p.y][p.x];
+        if (v){
+          this.dots[p.y][p.x] = 0; this.left--;
+          this.score += v === 2 ? 50 : 10;
+          if (v === 2){ this.power = 6000 - this.level*300; this.combo = 0; sfx('level'); } else sfx('eat');
+          updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi'));
+          if (this.left === 0){ this.level++; sfx('level'); this.board(); }
+        }
+        this.collide();
+      },
+      moveGhost(g){
+        if (g.eaten > 0){ g.eaten--; return; }
+        const p = this.p;
+        const opts = [];
+        DIRS.forEach((d, i) => {
+          if (i === (g.dir + 2) % 4) return;              // no U-turns
+          if (!wall(g.x + d.x, g.y + d.y)) opts.push(i);
+        });
+        if (!opts.length) opts.push((g.dir + 2) % 4);
+        const dist = i => Math.abs(g.x + DIRS[i].x - p.x) + Math.abs(g.y + DIRS[i].y - p.y);
+        let pick;
+        if (this.power > 0) pick = opts.reduce((a, b) => dist(a) >= dist(b) ? a : b);        // flee
+        else if (Math.random() < 0.2) pick = opts[Math.floor(Math.random() * opts.length)];   // a little randomness
+        else pick = opts.reduce((a, b) => dist(a) <= dist(b) ? a : b);                        // chase
+        g.dir = pick; g.x += DIRS[pick].x; g.y += DIRS[pick].y;
+      },
+      collide(){
+        for (const g of this.ghosts){
+          if (g.eaten > 0 || g.x !== this.p.x || g.y !== this.p.y) continue;
+          if (this.power > 0){
+            this.combo++; this.score += 100 * this.combo; sfx('score');
+            g.x = g.home.x; g.y = g.home.y; g.eaten = 6;
+            updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi'));
+          } else {
+            this.lives--; this.drawSide(); sfx('die');
+            if (this.lives <= 0){ endGame(this); return; }
+            this.place();
+            return;
+          }
+        }
+      },
+      draw(){
+        clearBoard();
+        const blink = Math.floor(performance.now() / 160) % 2;
+        for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++){
+          if (MAZE[y][x] === '#') drawCell(x, y, true, 0.28);
+          else if (this.dots[y][x] === 1){
+            const pad = cellSize*0.36;
+            bctx.fillStyle = pixelOn; bctx.fillRect(x*cellSize + pad, y*cellSize + pad, cellSize - pad*2, cellSize - pad*2);
+          } else if (this.dots[y][x] === 2 && blink) drawGhostCell(x, y);
+        }
+        // chasers: ring with a centre dot; while powered up only the (blinking) ring
+        this.ghosts.forEach(g => {
+          if (g.eaten > 0) return;
+          if (this.power > 0){ if (this.power > 1500 || blink) drawGhostCell(g.x, g.y); return; }
+          drawGhostCell(g.x, g.y); drawGhostCell(g.x, g.y);
+          const pad = cellSize*0.34;
+          bctx.fillStyle = pixelOn; bctx.fillRect(g.x*cellSize + pad, g.y*cellSize + pad, cellSize - pad*2, cellSize - pad*2);
+        });
+        drawCell(this.p.x, this.p.y, true, this.startDelay > 0 && blink ? 0.3 : 1);
+      },
+      onUp(){ this.p.want = 0; }, onRight(){ this.p.want = 1; },
+      onDown(){ this.p.want = 2; }, onLeft(){ this.p.want = 3; },
+      onA(){}, onB(){}
+    };
+  }
+
+  // ========== RALLY (P) ==========
+  // Two-lane racer with classic brick-game cars, fuel and turbo.
+  function makeRally(){
+    const CAR = ['.#.', '###', '.#.', '#.#'];
+    const LANES = [2, 5];
+    function drawCar(x, y, alpha=1){
+      CAR.forEach((row, dy) => [...row].forEach((ch, dx) => { if (ch === '#') drawCell(x + dx, Math.floor(y) + dy, true, alpha); }));
+    }
+    return {
+      lane: 0, cars: [], fuelCans: [], fuel: 100, turbo: 0, scroll: 0, spawnAcc: 0,
+      score: 0, level: 1, gameOver: false, passed: 0,
+      init(){
+        this.level = levelSelect; this.score = 0; this.gameOver = false;
+        this.lane = 0; this.cars = []; this.fuelCans = []; this.fuel = 100; this.turbo = 0; this.passed = 0;
+        this.spawnAcc = 0;
+        updateHUD(0, this.level, hiscore, t('mode'), t('hi'));
+        this.drawSide();
+      },
+      drawSide(){ drawIcon(nctx, nextCanvas, MODES_BY_ID.P.icon); this.fuelPanel(); },
+      fuelPanel(){ setExtra(t('fuel'), Math.max(0, Math.ceil(this.fuel)) + '%'); },
+      speed(){ return (0.010 + speedSelect*0.0009 + this.level*0.0008) * (this.turbo > 0 ? 1.6 : 1); },
+      update(dt){
+        if (this.gameOver) return;
+        const v = this.speed() * dt;
+        this.scroll += v;
+        if (this.turbo > 0) this.turbo -= dt;
+        // fuel
+        this.fuel -= dt * (this.turbo > 0 ? 0.006 : 0.0032);
+        if (Math.floor(this.fuel) !== this.lastFuel){ this.lastFuel = Math.floor(this.fuel); this.fuelPanel(); }
+        if (this.fuel <= 0){ endGame(this); return; }
+        // traffic
+        this.cars.forEach(c => c.y += v * 0.55);
+        this.fuelCans.forEach(f => f.y += v);
+        this.cars = this.cars.filter(c => {
+          if (c.y > ROWS){ this.passed++; this.score += this.turbo > 0 ? 20 : 10; this.levelCheck(); this.hud(); return false; }
+          return true;
+        });
+        this.fuelCans = this.fuelCans.filter(f => f.y <= ROWS);
+        this.spawnAcc += dt;
+        const gap = Math.max(650, 1700 - this.level*90 - speedSelect*40) / (this.turbo > 0 ? 1.4 : 1);
+        if (this.spawnAcc >= gap){
+          this.spawnAcc = 0;
+          const lane = Math.floor(Math.random()*2);
+          // keep a clear gap between cars so there is always a way through
+          if (!this.cars.some(c => c.y < 5)) this.cars.push({lane, y: -4});
+          if (Math.random() < 0.18) this.fuelCans.push({lane: 1 - lane, y: -1});
+        }
+        // collisions (player car rows ROWS-4..ROWS-1)
+        const py = ROWS - 4;
+        for (const c of this.cars) if (c.lane === this.lane && c.y + 4 > py + 0.3 && c.y < py + 3.7){ endGame(this, 'crash'); return; }
+        this.fuelCans = this.fuelCans.filter(f => {
+          if (f.lane === this.lane && f.y + 1 > py && f.y < py + 4){ this.fuel = Math.min(100, this.fuel + 35); sfx('eat'); this.score += 25; this.hud(); this.fuelPanel(); return false; }
+          return true;
+        });
+      },
+      levelCheck(){ if (this.passed % 15 === 0){ this.level++; sfx('level'); } },
+      hud(){ updateHUD(this.score, this.level, liveHi(this.score), t('mode'), t('hi')); },
+      draw(){
+        clearBoard();
+        const off = Math.floor(this.scroll) % 4;
+        for (let y = 0; y < ROWS; y++) if ((y + 4 - off) % 4 !== 0){ drawCell(0, y, true, 0.6); drawCell(COLS-1, y, true, 0.6); }
+        this.cars.forEach(c => drawCar(LANES[c.lane], c.y));
+        const blink = Math.floor(performance.now() / 150) % 2;
+        this.fuelCans.forEach(f => drawCell(LANES[f.lane] + 1, Math.floor(f.y), true, blink ? 1 : 0.4));
+        drawCar(LANES[this.lane], ROWS - 4);
+      },
+      onLeft(){ if (this.lane > 0){ this.lane--; sfx('move'); } },
+      onRight(){ if (this.lane < 1){ this.lane++; sfx('move'); } },
+      onUp(){ this.onB(); }, onDown(){ this.turbo = 0; },
+      onA(){ this.onB(); },
+      onB(){ if (this.fuel > 5){ this.turbo = 1500; sfx('start'); } }
     };
   }
 

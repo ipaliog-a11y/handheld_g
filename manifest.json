@@ -1,7 +1,7 @@
 {
   "name": "Brick Game 9999 in 1",
   "short_name": "Brick Game",
-  "description": "Classic handheld LCD multi-game: falling bricks, race, snake, shooter, tank, brick breaker, frog crossing",
+  "description": "Classic handheld LCD multi-game: 16 games including falling bricks, race, snake, shooter, tank, brick breaker, frog crossing, stacker, runner, pong, invaders, gems and maze",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
