@@ -115,6 +115,13 @@
   .overlay .opts { font-size: 18px; line-height: 1.5; margin-top: 6px; text-align: left; }
   .overlay .opts div { padding: 0 6px; }
   .overlay .opts .sel { background: var(--pixel-on); color: var(--screen-bg); }
+  .toast {
+    position: absolute; left: 8px; right: 8px; top: 8px; z-index: 20;
+    background: var(--pixel-on); color: var(--screen-bg);
+    font-size: 17px; text-align: center; padding: 4px 6px; border-radius: 3px;
+    opacity: 0; transform: translateY(-6px); transition: opacity .2s, transform .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: none; }
   .controls {
     display: flex; align-items: center; justify-content: space-between;
     padding: 4px 2px 2px;
@@ -236,6 +243,7 @@
           <div class="val small" id="extraVal"></div>
         </div>
       </div>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
       <div class="overlay" id="overlay" role="status" aria-live="polite">
         <div id="overlayTitle">BRICK GAME</div>
         <div class="small" id="overlaySub">9999 IN 1</div>
@@ -332,6 +340,14 @@
       cars: 'CARS',
       food: 'FOOD',
       fuel: 'FUEL',
+      holdLbl: 'HOLD',
+      daily: 'DAILY', statsItem: 'STATS', awardsItem: 'AWARDS',
+      statsTitle: 'STATS', awardsTitle: 'AWARDS', anyBack: 'A/B = back',
+      newRecord: 'NEW RECORD!', initialsHint: '▲▼ letter  ◀▶ move\nA = OK',
+      bShare: 'B = share', copied: 'COPIED!', top5: 'TOP 5', fixedSet: '(fixed)',
+      dailyDesc: 'Same for all today', todayIs: 'Today:',
+      b_again: 'AGAIN', b_share: 'SHARE',
+      linesLbl: 'LINES',
       set: 'SET',
       on: 'ON ',
       off: 'OFF',
@@ -383,6 +399,14 @@
       cars: 'ΑΥΤ/ΤΑ',
       food: 'ΦΑΓΗΤΟ',
       fuel: 'ΚΑΥΣ',
+      holdLbl: 'ΚΡΑΤ',
+      daily: 'ΗΜΕΡΗΣΙΟ', statsItem: 'ΣΤΑΤΙΣΤ.', awardsItem: 'ΒΡΑΒΕΙΑ',
+      statsTitle: 'ΣΤΑΤΙΣΤΙΚΑ', awardsTitle: 'ΒΡΑΒΕΙΑ', anyBack: 'A/B = πίσω',
+      newRecord: 'ΝΕΟ ΡΕΚΟΡ!', initialsHint: '▲▼ γράμμα  ◀▶ θέση\nA = OK',
+      bShare: 'B = κοινοποίηση', copied: 'ΑΝΤΙΓΡΑΦΗΚΕ!', top5: 'TOP 5', fixedSet: '(σταθερό)',
+      dailyDesc: 'Ίδιο για όλους', todayIs: 'Σήμερα:',
+      b_again: 'ΞΑΝΑ', b_share: 'ΜΟΙΡΑΣΕ',
+      linesLbl: 'ΓΡΑΜ',
       set: 'SET',
       on: 'ΝΑΙ',
       off: 'ΟΧΙ',
@@ -600,6 +624,18 @@
     }));
   }
 
+  // a brick piece (by SHAPES key) centred in a side-panel canvas
+  function drawPiece(ctx, canvas, type, alpha=1){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if (!type) return;
+    const size = 11;
+    const offX = (canvas.width-4*size)/2, offY = (canvas.height-2*size)/2;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = pixelOn;
+    SHAPES[type].forEach(([x,y]) => ctx.fillRect(offX+x*size+1, offY+y*size+1, size-2, size-2));
+    ctx.globalAlpha = 1;
+  }
+
   function drawHearts(lives){
     nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
     nctx.fillStyle=pixelOn; nctx.font='16px VT323, monospace';
@@ -608,12 +644,13 @@
   }
 
   // optional 5th side panel (e.g. held piece, lines)
-  function setExtra(label, value){
+  function setExtra(label, value, withCanvas=false){
     if (label == null){ extraPanel.hidden = true; return; }
     extraPanel.hidden = false;
     extraLabel.textContent = label;
     extraVal.textContent = value == null ? '' : value;
-    extraCanvas.style.display = value == null ? 'block' : 'none';
+    extraVal.hidden = value == null;
+    extraCanvas.style.display = withCanvas ? 'block' : 'none';
   }
 
   // ========== HI-SCORES ==========
@@ -624,14 +661,6 @@
     return cur;
   }
 
-  // Called by every game when it ends; saves the high score once
-  function endGame(g, titleKey='gameOver'){
-    g.gameOver = true;
-    state = 'over';
-    sfx('die');
-    hiscore = saveHi(currentMode.id, g.score);
-    showOverlay(t(titleKey), t('score') + ' ' + g.score, t('pressReset'));
-  }
   // Running high score shown in the HUD; persisted by endGame()
   function liveHi(score){ hiscore = Math.max(hiscore, score); return hiscore; }
 
@@ -672,10 +701,230 @@
       desc:{en:'Race with fuel', el:'Αγώνας+καύσιμα'}, icon:['..#...','.###..','..#...','.#.#..','......'] },
   ];
   const MODES_BY_ID = Object.fromEntries(MODES.map(m => [m.id, m]));
+  // main menu: daily challenge, the games, then stats and awards pages
+  const MENU_ITEMS = [{kind:'daily'}, ...MODES.map(m => ({kind:'game', mode:m})), {kind:'stats'}, {kind:'awards'}];
+  // ========== RECORDS (top 5 per game, with initials) ==========
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function loadTop(key){
+    const top = store.getJSON('bg_top_' + key, null);
+    if (Array.isArray(top)) return top;
+    const hi = key.length === 1 ? loadHi(key) : 0;   // migrate an old single high score
+    return hi > 0 ? [{n: '---', s: hi}] : [];
+  }
+  function qualifies(key, score){
+    const top = loadTop(key);
+    return score > 0 && (top.length < 5 || score > top[top.length - 1].s);
+  }
+  function addTop(key, name, score){
+    const top = loadTop(key);
+    const entry = {n: name, s: score, d: todayStr()};
+    top.push(entry);
+    top.sort((a, b) => b.s - a.s);
+    const kept = top.slice(0, 5);
+    store.setJSON('bg_top_' + key, kept);
+    if (key.length === 1) saveHi(key, score);
+    return kept.indexOf(entry);
+  }
+  function topLines(key){
+    const top = loadTop(key);
+    const out = [];
+    for (let i = 0; i < 5; i++){
+      const e = top[i];
+      out.push(e ? `${i+1} ${e.n.padEnd(3,' ')} ${String(e.s).padStart(6,' ')}` : `${i+1} ---      -`);
+    }
+    return out;
+  }
+
+  // ========== DAILY CHALLENGE ==========
+  // Same game, level, speed and random sequence for everyone on a given day
+  const nativeRandom = Math.random;
+  function seededRandom(seedStr){
+    let h = 1779033703 ^ seedStr.length;
+    for (let i = 0; i < seedStr.length; i++){ h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    let a = h >>> 0;
+    return function(){   // mulberry32
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let r = Math.imul(a ^ (a >>> 15), 1 | a);
+      r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function dailyInfo(){
+    const date = todayStr();
+    const day = Math.floor(Date.UTC(+date.slice(0,4), +date.slice(5,7)-1, +date.slice(8,10)) / 86400000);
+    return { date, mode: MODES[day % MODES.length], key: 'D' + date, level: 3, speed: 4 };
+  }
+
+  // ========== STATS & AWARDS ==========
+  const stats = Object.assign({ played: {}, timeMs: 0, lines: 0, quads: 0, bestCombo: 0, total: 0, daily: 0 },
+                              store.getJSON('bg_stats', {}));
+  function saveStats(){ store.setJSON('bg_stats', stats); }
+  const AWARDS = [
+    { id:'first',     en:'FIRST GAME',   el:'ΠΡΩΤΟ ΠΑΙΧΝ.' },
+    { id:'all',       en:'TRIED ALL 16', el:'ΟΛΑ ΤΑ 16' },
+    { id:'lines100',  en:'100 LINES',    el:'100 ΓΡΑΜΜΕΣ' },
+    { id:'quad',      en:'4 AT ONCE',    el:'4 ΜΑΖΙ' },
+    { id:'combo5',    en:'COMBO x5',     el:'COMBO x5' },
+    { id:'score10k',  en:'10K POINTS',   el:'10Κ ΠΟΝΤΟΙ' },
+    { id:'snake300',  en:'BIG SNAKE',    el:'ΜΕΓΑΛΟ ΦΙΔΙ' },
+    { id:'run500',    en:'RUN 500',      el:'ΤΡΕΞΕ 500' },
+    { id:'stackTop',  en:'SKY HIGH',     el:'ΣΤΟΝ ΟΥΡΑΝΟ' },
+    { id:'mazeClear', en:'MAZE CLEAR',   el:'ΛΑΒΥΡΙΝΘΟΣ' },
+    { id:'pong500',   en:'PONG PRO',     el:'PONG PRO' },
+    { id:'daily',     en:'DAILY DONE',   el:'ΗΜΕΡΗΣΙΟ' },
+    { id:'marathon',  en:'30 MINUTES',   el:'30 ΛΕΠΤΑ' },
+  ];
+  const unlocked = store.getJSON('bg_awards', {});
+  function award(id){
+    if (unlocked[id]) return;
+    const a = AWARDS.find(x => x.id === id);
+    if (!a) return;
+    unlocked[id] = todayStr();
+    store.setJSON('bg_awards', unlocked);
+    toast('★ ' + (a[lang] || a.en));
+    sfx('level');
+  }
+  // end-of-game score awards per game
+  const SCORE_AWARDS = { D: [300, 'snake300'], J: [500, 'run500'], L: [500, 'pong500'] };
+
+  let toastT = null;
+  function toast(text){
+    const el = document.getElementById('toast');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  function fmtTime(ms){
+    const m = Math.floor(ms / 60000);
+    return m >= 60 ? Math.floor(m/60) + 'h' + String(m%60).padStart(2,'0') + 'm' : m + 'm';
+  }
+  function drawStats(){
+    clearBoard(); hideOverlay();
+    const played = Object.values(stats.played).reduce((a, b) => a + b, 0);
+    let fav = '-', favN = 0;
+    for (const [id, n] of Object.entries(stats.played)) if (n > favN && MODES_BY_ID[id]){ fav = MODES_BY_ID[id].name; favN = n; }
+    const L = lang === 'el'
+      ? ['ΠΑΙΧΝΙΔΙΑ', 'ΧΡΟΝΟΣ', 'ΓΡΑΜΜΕΣ', '4-ΓΡΑΜΜΕΣ', 'ΚΑΛ.COMBO', 'ΠΟΝΤΟΙ', 'ΗΜΕΡΗΣΙΑ', 'ΑΓΑΠΗΜΕΝΟ', 'ΒΡΑΒΕΙΑ']
+      : ['GAMES', 'TIME', 'LINES', '4-LINES', 'BEST COMBO', 'POINTS', 'DAILIES', 'FAVOURITE', 'AWARDS'];
+    const v = [played, fmtTime(stats.timeMs), stats.lines, stats.quads, stats.bestCombo, stats.total, stats.daily, fav,
+               Object.keys(unlocked).length + '/' + AWARDS.length];
+    const lines = ['  ' + t('statsTitle'), ''];
+    L.forEach((k, i) => { lines.push(' ' + k); lines.push('     ' + v[i]); });
+    lines.push(''); lines.push(' ' + t('anyBack'));
+    drawLines(lines, { size: 0.95, step: 0.82, top: 0.4, left: 0.35 });
+    drawIcon(nctx, nextCanvas, ['#.....','#..#..','#..#.#','##.#.#','######']);
+    setExtra(null);
+    updateHUD(played, '-', '-', t('mode'), t('hi'));
+  }
+  let awardsTop = 0;
+  function drawAwards(){
+    clearBoard(); hideOverlay();
+    const lines = ['  ' + t('awardsTitle') + ' ' + Object.keys(unlocked).length + '/' + AWARDS.length, ''];
+    AWARDS.forEach(a => lines.push((unlocked[a.id] ? ' ★ ' : ' · ') + (a[lang] || a.en)));
+    lines.push(''); lines.push(' ' + t('anyBack'));
+    drawLines(lines, { size: 0.95, step: 1.0, top: 0.5, left: 0.3 });
+    drawIcon(nctx, nextCanvas, ['..#...','#####.','.###..','.#.#..','#...#.']);
+    setExtra(null);
+    updateHUD(Object.keys(unlocked).length, '-', '-', t('mode'), t('hi'));
+  }
+
+  // ========== GAME OVER / INITIALS / SHARE ==========
+  let lastResult = null;       // {title, score, key, rank, modeName, daily}
+  let initials = ['A','A','A'], initPos = 0;
+  const INIT_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  function recordKey(){ return playingDaily ? dailyInfo().key : currentMode.id; }
+
+  // Called by every game when it ends
+  function endGame(g, titleKey='gameOver'){
+    g.gameOver = true;
+    state = 'over';
+    sfx('die');
+    const key = recordKey();
+    store.setJSON('bg_top_' + key, loadTop(key));  // pin the table (migrating an old high score) before saveHi()
+    const isRecord = qualifies(key, g.score);
+    if (!playingDaily) hiscore = saveHi(currentMode.id, g.score);
+    // stats + awards
+    stats.total += g.score;
+    if (playingDaily){ stats.daily++; award('daily'); }
+    saveStats();
+    if (g.score >= 10000) award('score10k');
+    const sa = SCORE_AWARDS[currentMode.id];
+    if (sa && g.score >= sa[0]) award(sa[1]);
+    lastResult = { title: t(titleKey), score: g.score, key, rank: -1, modeName: currentMode.name, daily: playingDaily ? dailyInfo().date : null };
+    if (isRecord){
+      state = 'initials';
+      initials = store.get('bg_initials', 'AAA').padEnd(3, 'A').slice(0, 3).split('');
+      initPos = 0;
+      showInitials();
+    } else showGameOver();
+  }
+  function showInitials(){
+    const txt = initials.map((c, i) => i === initPos ? '[' + c + ']' : ' ' + c + ' ').join('');
+    showOverlay(t('newRecord'), t('score') + ' ' + lastResult.score, t('initialsHint'), [txt], 0);
+  }
+  function confirmInitials(){
+    const name = initials.join('');
+    store.set('bg_initials', name);
+    lastResult.rank = addTop(lastResult.key, name, lastResult.score);
+    if (!playingDaily) hiscore = loadHi(currentMode.id);
+    state = 'over';
+    sfx('score');
+    showGameOver();
+  }
+  function showGameOver(){
+    showOverlay(lastResult.title, t('score') + ' ' + lastResult.score, t('pressReset') + '\n' + t('bShare'),
+      topLines(lastResult.key), lastResult.rank);
+  }
+  function shareResult(){
+    if (!lastResult) return;
+    const url = location.href.split(/[?#]/)[0];
+    const text = (lang === 'el'
+      ? `Έκανα ${lastResult.score} πόντους στο ${lastResult.modeName}`
+      : `I scored ${lastResult.score} in ${lastResult.modeName}`)
+      + (lastResult.daily ? ` (Daily ${lastResult.daily})` : '') + ' — BRICK GAME 9999 in 1 ' + url;
+    if (navigator.share){
+      navigator.share({ title: 'BRICK GAME', text }).catch(() => {});
+    } else if (navigator.clipboard){
+      navigator.clipboard.writeText(text).then(() => toast(t('copied')), () => toast(text));
+    } else toast(text);
+  }
+
+  // ========== GAMEPAD ==========
+  const padPrev = {}, padNext = {};
+  function pollGamepad(ts){
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let gp = null;
+    for (const p of pads) if (p && p.connected){ gp = p; break; }
+    if (!gp) return;
+    const btn = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+    const cur = {
+      left: btn(14) || ax < -0.5, right: btn(15) || ax > 0.5, up: btn(12) || ay < -0.5, down: btn(13) || ay > 0.5,
+      a: btn(0) || btn(3), b: btn(1) || btn(2), start: btn(9), select: btn(8), hold: btn(4) || btn(5),
+    };
+    for (const d of ['left','right','up','down']){
+      if (cur[d] && !padPrev[d]){ handleDir(d); padNext[d] = ts + 220; }
+      else if (cur[d] && holdRepeat && ts >= padNext[d]){ handleDir(d); padNext[d] = ts + 55; }
+    }
+    if (cur.a && !padPrev.a) handleA();
+    if (cur.b && !padPrev.b) handleB();
+    if (cur.start && !padPrev.start) togglePause();
+    if (cur.select && !padPrev.select) document.getElementById('btnSettings').dispatchEvent(new Event('pointerdown'));
+    if (cur.hold && !padPrev.hold && state === 'play' && G && G.hold){ G.hold(); G.draw(); }
+    Object.assign(padPrev, cur);
+  }
+
+
   function modeDesc(m){ return (m.desc && (m.desc[lang] || m.desc.en)) || ''; }
 
-  let state = 'menu'; // menu | level | play | pause | over | settings
-  let menuIndex = 0;
+  let state = 'menu'; // menu | level | play | pause | over | initials | settings | stats | awards
+  let menuIndex = 1;   // 0 = daily challenge, 1.. = games
+  let playingDaily = false;
   let menuTop = 0;     // first visible row of the scrolling game list
   let levelSelect = 1;
   let speedSelect = 1;
@@ -714,9 +963,10 @@
   let btnLabelKey = '';
   function updateButtonLabels(){
     let a = 'b_ok', b = 'b_ok';
-    if (state === 'level' || state === 'settings') b = 'b_back';
+    if (state === 'level' || state === 'settings' || state === 'stats' || state === 'awards') b = 'b_back';
     else if (state === 'pause') { a = 'b_ok'; b = 'b_back'; }
-    else if ((state === 'play' || state === 'over') && currentMode) [a, b] = currentMode.btn;
+    else if (state === 'over') { a = 'b_again'; b = 'b_share'; }
+    else if (state === 'play' && currentMode) [a, b] = currentMode.btn;
     const key = a + b + lang;
     if (key === btnLabelKey) return;
     btnLabelKey = key;
@@ -729,58 +979,77 @@
     if (state === 'menu') drawMenu();
     else if (state === 'level') drawLevelSelect();
     else if (state === 'settings') drawSettings();
+    else if (state === 'stats') drawStats();
+    else if (state === 'awards') drawAwards();
     else if (G && G.draw) G.draw();
     if (state === 'pause') showPauseMenu();
+    if (state === 'initials') showInitials();
+    if (state === 'over' && lastResult) showGameOver();
   }
 
   // ========== MENU ==========
   const MENU_ROWS = 10;
+  function itemLabel(it){
+    if (it.kind === 'daily') return '★' + t('daily');
+    if (it.kind === 'game') return it.mode.id + ' ' + it.mode.name;
+    return ' ' + t(it.kind === 'stats' ? 'statsItem' : 'awardsItem');
+  }
+  // the game a menu item would start (daily = today's game)
+  function itemMode(it){ return it.kind === 'daily' ? dailyInfo().mode : it.kind === 'game' ? it.mode : null; }
+  function itemHi(it){
+    if (it.kind === 'daily'){ const top = loadTop(dailyInfo().key); return top.length ? top[0].s : 0; }
+    return it.kind === 'game' ? loadHi(it.mode.id) : 0;
+  }
   function drawMenu(){
     clearBoard();
     hideOverlay();
     if (menuIndex < menuTop) menuTop = menuIndex;
     if (menuIndex >= menuTop + MENU_ROWS) menuTop = menuIndex - MENU_ROWS + 1;
     const lines = [' ' + t('selectGame'), ''];
-    for (let i = menuTop; i < Math.min(MODES.length, menuTop + MENU_ROWS); i++){
-      const m = MODES[i];
-      lines.push(`${i===menuIndex ? '>' : ' '}${m.id} ${m.name}`);
+    for (let i = menuTop; i < Math.min(MENU_ITEMS.length, menuTop + MENU_ROWS); i++){
+      lines.push(`${i===menuIndex ? '>' : ' '}${itemLabel(MENU_ITEMS[i])}`);
     }
     while (lines.length < 2 + MENU_ROWS) lines.push('');
     // scroll hints
     if (menuTop > 0) lines[1] = '         ▲';
-    lines.push(menuTop + MENU_ROWS < MODES.length ? '         ▼' : '');
-    lines.push(' ' + modeDesc(MODES[menuIndex]));
+    lines.push(menuTop + MENU_ROWS < MENU_ITEMS.length ? '         ▼' : '');
+    const it = MENU_ITEMS[menuIndex], m = itemMode(it);
+    lines.push(' ' + (it.kind === 'daily' ? t('todayIs') + ' ' + m.name : m ? modeDesc(m) : ''));
     lines.push(' ' + t('move'));
     lines.push(' ' + t('startOk'));
     drawLines(lines, { sel: 2 + menuIndex - menuTop, step: 0.95, top: 0.5 });
 
-    const m = MODES[menuIndex];
-    drawIcon(nctx, nextCanvas, m.icon);
+    drawIcon(nctx, nextCanvas, m ? m.icon : it.kind === 'stats'
+      ? ['#.....','#..#..','#..#.#','##.#.#','######'] : ['..#...','#####.','.###..','.#.#..','#...#.']);
     setExtra(null);
-    updateHUD(0, levelSelect, loadHi(m.id), t('mode'), t('hi'));
+    updateHUD(0, levelSelect, itemHi(it), t('mode'), t('hi'));
   }
 
   function drawLevelSelect(){
     clearBoard();
     hideOverlay();
-    const m = MODES[menuIndex];
-    const lines = [
-      ` ${t('game')} ${m.id}`,
-      ` ${m.name}`,
+    const it = MENU_ITEMS[menuIndex], m = itemMode(it);
+    const daily = it.kind === 'daily' ? dailyInfo() : null;
+    const lines = daily ? [
+      ` ★${t('daily')} ${daily.date.slice(5)}`,
+      ` ${m.id} ${m.name}`,
+      ' ' + t('dailyDesc'),
+      ` ${t('level')}  ${daily.level}`,
+      ` ${t('speed')}  ${daily.speed}  ${t('fixedSet')}`,
+      ' ' + t('startPlay'),
+    ] : [
+      ` ${t('game')} ${m.id} ${m.name}`,
       ' ' + modeDesc(m),
-      '',
-      ` ${t('level')}  ${levelSelect}`,
-      ` ${t('speed')}  ${speedSelect}`,
-      '',
-      ' ◀▶  ' + t('level').toLowerCase(),
-      ' ▲▼  ' + t('speed').toLowerCase(),
+      ` ${t('level')}  ${levelSelect}   ◀▶`,
+      ` ${t('speed')}  ${speedSelect}   ▲▼`,
       ' ' + t('startPlay'),
       ' ' + t('bBack'),
     ];
-    drawLines(lines, { size: 1.1, step: 1.05, top: 1.2, left: 0.4 });
+    lines.push('', ' ' + t('top5'), ...topLines(daily ? daily.key : m.id).map(l => ' ' + l));
+    drawLines(lines, { size: 1.0, step: 1.0, top: 0.8, left: 0.3 });
     drawIcon(nctx, nextCanvas, m.icon);
     setExtra(null);
-    updateHUD(0, levelSelect, loadHi(m.id), t('mode'), t('hi'));
+    updateHUD(0, daily ? daily.level : levelSelect, itemHi(it), t('mode'), t('hi'));
   }
 
   const SETTINGS_OPTS = [
@@ -894,6 +1163,15 @@
       gameOver: false,
       combo: 0, quadStreak: 0,
       splash: null, splashTimer: 0,
+      bag: [], holdType: null, holdUsed: false, lockT: 0, lockResets: 0,
+      // 7-bag randomizer: every piece once per bag, so no long droughts
+      takeNext(){
+        if (!this.bag.length){
+          this.bag = KEYS.slice();
+          for (let i = this.bag.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]]; }
+        }
+        return this.bag.pop();
+      },
       init(){
         this.grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
         this.score=0; this.lines=0;
@@ -902,6 +1180,7 @@
         this.dropAcc=0; this.gameOver=false;
         this.combo=0; this.quadStreak=0;
         this.splash=null; this.splashTimer=0;
+        this.bag=[]; this.holdType=null; this.holdUsed=false;
         if (isB){
           const garbage = Math.min(12, 2 + levelSelect*2);
           for (let r=ROWS-garbage; r<ROWS; r++){
@@ -909,19 +1188,34 @@
             this.grid[r][Math.floor(Math.random()*COLS)] = 0;
           }
         }
-        this.nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
+        this.nextType = this.takeNext();
         this.spawn();
         updateHUD(this.score, this.level, hiscore, t('next'), t('hi'));
         this.drawNext();
+        this.drawSide();
+      },
+      drawSide(){
+        setExtra(t('holdLbl'), t('linesLbl') + ' ' + this.lines, true);
+        drawPiece(xctx, extraCanvas, this.holdType, this.holdUsed ? 0.4 : 1);
+      },
+      hold(){
+        if (this.holdUsed || this.gameOver) return;
+        const prev = this.holdType;
+        this.holdType = this.curType;
+        this.spawn(prev);
+        this.holdUsed = true;   // after spawn(), which clears it when it takes the next piece
+        sfx('rotate');
+        this.drawSide();
       },
       showSplash(text, ms=1100){
         this.splash = text;
         this.splashTimer = ms;
       },
-      spawn(){
-        this.curType = this.nextType;
-        this.nextType = KEYS[Math.floor(Math.random()*KEYS.length)];
+      spawn(type){
+        if (type) this.curType = type;
+        else { this.curType = this.nextType; this.nextType = this.takeNext(); this.holdUsed = false; }
         this.curRot = 0;
+        this.lockT = 0; this.lockResets = 0; this.dropAcc = 0;
         const base = SHAPES[this.curType];
         this.cur = base.map(([x,y])=>({x:x+3, y:y}));
         if (this.collides(this.cur)) this.die();
@@ -957,6 +1251,7 @@
           if (!this.collides(cand)) {
             this.cur = cand;
             this.curRot = newRot;
+            this.groundedMove();
             sfx('rotate');
             return;
           }
@@ -964,9 +1259,12 @@
       },
       move(dx,dy){
         const moved = this.cur.map(p=>({x:p.x+dx,y:p.y+dy}));
-        if (!this.collides(moved)){ this.cur=moved; return true; }
+        if (!this.collides(moved)){ this.cur=moved; if (dx) this.groundedMove(); return true; }
         return false;
       },
+      grounded(){ return this.collides(this.cur.map(p=>({x:p.x,y:p.y+1}))); },
+      // short lock delay: sliding/rotating on the stack resets it (up to 15 times)
+      groundedMove(){ if (this.lockResets < 15){ this.lockT = 0; this.lockResets++; } },
       hardDrop(){
         let d=0;
         while(this.move(0,1)) d++;
@@ -997,6 +1295,11 @@
           const comboBonus = this.combo >= 2 ? (this.combo - 1) * 50 * this.level : 0;
           this.score += pts + comboBonus;
           this.lines += cleared;
+          stats.lines += cleared;
+          if (stats.lines >= 100) award('lines100');
+          if (cleared === 4){ stats.quads++; award('quad'); }
+          if (this.combo > stats.bestCombo) stats.bestCombo = this.combo;
+          if (this.combo >= 5) award('combo5');
           const newLev = Math.floor(this.lines/10)+levelSelect;
           if (newLev > this.level){ this.level=newLev; sfx('level'); this.dropInterval=Math.max(80,this.dropInterval-40); }
           else sfx('line');
@@ -1021,6 +1324,7 @@
 
           liveHi(this.score);
           updateHUD(this.score, this.level, hiscore, t('next'), t('hi'));
+          this.drawSide();
         } else {
           // locked piece with no lines → reset combos
           this.combo = 0;
@@ -1032,11 +1336,15 @@
       },
       update(dt){
         if (this.gameOver) return;
-        this.dropAcc += dt;
-        if (this.dropAcc >= this.dropInterval){
-          this.dropAcc=0;
-          if (!this.move(0,1)) this.lock();
+        if (this.grounded()){
+          this.lockT += dt;
+          if (this.lockT >= Math.max(250, 500 - this.level*15)) this.lock();
+        } else {
+          this.lockT = 0;
+          this.dropAcc += dt;
+          if (this.dropAcc >= this.dropInterval){ this.dropAcc=0; this.move(0,1); }
         }
+        if (this.gameOver) return;
         if (this.splashTimer > 0) {
           this.splashTimer -= dt;
           if (this.splashTimer <= 0) { this.splash = null; this.splashTimer = 0; }
@@ -1087,19 +1395,12 @@
       },
       drawNext(){
         nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
-        const pts = SHAPES[this.nextType];
-        const size=11;
-        const offX=(nextCanvas.width-4*size)/2;
-        const offY=(nextCanvas.height-2*size)/2;
-        nctx.fillStyle=pixelOn;
-        pts.forEach(([x,y])=>{
-          nctx.fillRect(offX+x*size+1, offY+y*size+1, size-2, size-2);
-        });
+        drawPiece(nctx, nextCanvas, this.nextType);
       },
       onLeft(){ if(this.move(-1,0)) sfx('move'); },
       onRight(){ if(this.move(1,0)) sfx('move'); },
       onDown(){ if(!this.move(0,1)) this.lock(); else sfx('move'); },
-      onUp(){ this.rotate(); },
+      onUp(){ this.hold(); },
       onA(){ this.rotate(); },
       onB(){ this.hardDrop(); }
     };
@@ -1712,6 +2013,7 @@
         this.score += 10 * w * this.level;
         sfx(this.cut.length ? 'hit' : 'lock');
         if (this.rows.length >= ROWS){
+          award('stackTop');
           this.score += 500 * this.level;
           this.level++; sfx('level');
           this.newRound();
@@ -2256,7 +2558,7 @@
           this.score += v === 2 ? 50 : 10;
           if (v === 2){ this.power = 6000 - this.level*300; this.combo = 0; sfx('level'); } else sfx('eat');
           updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi'));
-          if (this.left === 0){ this.level++; sfx('level'); this.board(); }
+          if (this.left === 0){ award('mazeClear'); this.level++; sfx('level'); this.board(); }
         }
         this.collide();
       },
@@ -2396,9 +2698,12 @@
     if (!lastTs) lastTs=ts;
     const dt = Math.min(50, ts-lastTs);
     lastTs=ts;
+    pollGamepad(ts);
     if (state==='play' && G){
       G.update(dt);
-      G.draw();
+      if (state==='play') G.draw();
+      stats.timeMs += dt;
+      if (stats.timeMs >= 30*60000) award('marathon');
     } else if (state==='menu') drawMenu();
     else if (state==='level') drawLevelSelect();
     else if (state==='settings') drawSettings();
@@ -2411,10 +2716,21 @@
   // ========== CONTROLS DISPATCH ==========
   function handleDir(dir){
     if (state==='menu'){
-      if (dir==='up'){ menuIndex = (menuIndex-1+MODES.length)%MODES.length; sfx('select'); drawMenu(); }
-      if (dir==='down'){ menuIndex = (menuIndex+1)%MODES.length; sfx('select'); drawMenu(); }
+      if (dir==='up'){ menuIndex = (menuIndex-1+MENU_ITEMS.length)%MENU_ITEMS.length; sfx('select'); drawMenu(); }
+      if (dir==='down'){ menuIndex = (menuIndex+1)%MENU_ITEMS.length; sfx('select'); drawMenu(); }
       return;
     }
+    if (state==='initials'){
+      const i = INIT_CHARS.indexOf(initials[initPos]);
+      if (dir==='up') initials[initPos] = INIT_CHARS[(i+1) % INIT_CHARS.length];
+      if (dir==='down') initials[initPos] = INIT_CHARS[(i-1+INIT_CHARS.length) % INIT_CHARS.length];
+      if (dir==='left') initPos = Math.max(0, initPos-1);
+      if (dir==='right') initPos = Math.min(2, initPos+1);
+      sfx('select'); showInitials();
+      return;
+    }
+    if (state==='stats' || state==='awards') return;
+    if (state==='level' && MENU_ITEMS[menuIndex].kind === 'daily') return;   // daily settings are fixed
     if (state==='level'){
       if (dir==='left'){ levelSelect=Math.max(1,levelSelect-1); sfx('select'); drawLevelSelect(); }
       if (dir==='right'){ levelSelect=Math.min(9,levelSelect+1); sfx('select'); drawLevelSelect(); }
@@ -2447,8 +2763,18 @@
       if (state==='play') G.draw();
     }
   }
+  function openMenuItem(){
+    const kind = MENU_ITEMS[menuIndex].kind;
+    hideOverlay(); sfx('select');
+    if (kind === 'stats'){ state = 'stats'; drawStats(); }
+    else if (kind === 'awards'){ state = 'awards'; drawAwards(); }
+    else { state = 'level'; drawLevelSelect(); }
+  }
+  function backToMenu(){ state = 'menu'; sfx('select'); drawMenu(); }
   function handleA(){
-    if (state==='menu'){ hideOverlay(); state='level'; sfx('select'); drawLevelSelect(); return; }
+    if (state==='menu'){ openMenuItem(); return; }
+    if (state==='stats' || state==='awards'){ backToMenu(); return; }
+    if (state==='initials'){ confirmInitials(); return; }
     if (state==='level'){ startPlay(); return; }
     if (state==='settings'){ closeSettings(); return; }
     if (state==='play' && G){ G.onA(); if (state==='play') G.draw(); return; }
@@ -2458,7 +2784,9 @@
   function handleB(){
     if (state==='play' && G){ G.onB(); if (state==='play') G.draw(); return; }
     if (state==='menu') { handleA(); return; }
-    if (state==='level'){ state='menu'; sfx('select'); drawMenu(); return; }
+    if (state==='level' || state==='stats' || state==='awards'){ backToMenu(); return; }
+    if (state==='initials'){ confirmInitials(); return; }
+    if (state==='over'){ shareResult(); return; }
     if (state==='settings'){ closeSettings(); return; }
     if (state==='pause'){ togglePause(); return; }
   }
@@ -2472,9 +2800,12 @@
       state='play'; hideOverlay(); lastTs=performance.now();
       applyBigLayout();
     } else if (state==='menu'){
-      hideOverlay();
-      state='level'; sfx('select'); drawLevelSelect();
+      openMenuItem();
       applyBigLayout();
+    } else if (state==='stats' || state==='awards'){
+      backToMenu();
+    } else if (state==='initials'){
+      confirmInitials();
     } else if (state==='level'){
       startPlay();
     } else if (state==='settings'){
@@ -2484,8 +2815,24 @@
     }
   }
   function startPlay(){
-    currentMode = MODES[menuIndex];
-    hiscore = loadHi(currentMode.id);
+    const it = MENU_ITEMS[menuIndex];
+    playingDaily = it.kind === 'daily';
+    if (playingDaily){
+      // fixed level/speed and a seeded random sequence shared by everyone today
+      const d = dailyInfo();
+      currentMode = d.mode;
+      levelSelect = d.level; speedSelect = d.speed;
+      Math.random = seededRandom(d.key + d.mode.id);
+      const top = loadTop(d.key); hiscore = top.length ? top[0].s : 0;
+    } else {
+      Math.random = nativeRandom;
+      currentMode = it.mode;
+      hiscore = loadHi(currentMode.id);
+    }
+    stats.played[currentMode.id] = (stats.played[currentMode.id] || 0) + 1;
+    saveStats();
+    award('first');
+    if (MODES.every(m => stats.played[m.id])) award('all');
     setExtra(null);
     nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
     G = currentMode.make();
@@ -2498,7 +2845,7 @@
   }
   let hudSnapshot = null;
   function openSettings(){
-    if (state === 'play' || state === 'over') return; // pause first
+    if (!['menu', 'level', 'pause'].includes(state)) return; // pause first
     prevStateBeforeSettings = state;
     // remember the in-game side panel so it can be restored after settings
     hudSnapshot = state === 'pause' ? [scoreEl, levelEl, hiscoreEl, sideLabel1, sideLabel2, extraLabel, extraVal]
@@ -2528,7 +2875,9 @@
     redrawScreen();
   }
   function doReset(){
-    if (G && currentMode && !G.gameOver) saveHi(currentMode.id, G.score);
+    if (G && currentMode && !G.gameOver && !playingDaily) saveHi(currentMode.id, G.score);
+    if (playingDaily){ Math.random = nativeRandom; playingDaily = false; levelSelect = 1; speedSelect = 1; }
+    saveStats();
     state='menu';
     G=null;
     hideOverlay();
@@ -2566,6 +2915,7 @@
       case 'x': case 'X': case 'k': case 'K': handleB(); break;
       case 'r': case 'R': doReset(); break;
       case 'm': case 'M': setSound(!soundOn); break;
+      case 'c': case 'C': case 'Shift': if (state==='play' && G && G.hold){ G.hold(); G.draw(); } break;
       case 'o': case 'O': case ',': document.getElementById('btnSettings').dispatchEvent(new Event('pointerdown')); break;
       case 'Escape': case 'p': case 'P': if (state==='play' || state==='pause') togglePause(); break;
       default: handled = false;
@@ -2620,9 +2970,18 @@
   // auto-pause when switching apps / tabs
   document.addEventListener('visibilitychange', ()=>{
     if (!document.hidden) return;
-    if (G && currentMode && !G.gameOver) saveHi(currentMode.id, G.score);
+    if (G && currentMode && !G.gameOver && !playingDaily) saveHi(currentMode.id, G.score);
+    saveStats();
     if (state==='play') togglePause();
   });
+
+  // test hook for the automated tests (only with ?test in the URL)
+  if (/[?&]test\b/.test(location.search)) window.__T = {
+    get G(){ return G; }, get state(){ return state; },
+    get menuIndex(){ return menuIndex; }, set menuIndex(v){ menuIndex = v; },
+    startMode(i){ menuIndex = i + 1; startPlay(); }, startDaily(){ menuIndex = 0; startPlay(); },
+    MAZE, MODES, stats, unlocked, dailyInfo, loadTop, isNativeRandom: () => Math.random === nativeRandom,
+  };
 
   // boot
   state='menu';
