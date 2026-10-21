@@ -24,17 +24,18 @@ A faithful Progressive Web App recreation of the classic 90s/2000s handheld **Br
 - Full offline PWA (installable on phone)
 - English + Greek language
 - Green LCD palette option
-- Touch-friendly **Slide** layout (big L/R buttons)
+- Touch-friendly **BIG 3** layout (large ↓ ◀ ▶ buttons)
+- Combo & Tetris streak splash messages
 
 ## Controls
 
 | Input | Action |
 |-------|--------|
 | D-pad / WASD / Arrows | Move / steer |
-| A / Z / J | Rotate / Action |
-| B / X / K | Hard drop / Shoot |
+| A button / Z / J | Rotate / Action |
+| B button / X / K | Hard drop / Shoot |
 | START / Enter / Space | Start / Pause / Confirm |
-| SET | Open settings |
+| SET / O / , | Open settings |
 | RESET / R | Back to menu |
 | SOUND / M | Toggle sound |
 
@@ -42,7 +43,7 @@ A faithful Progressive Web App recreation of the classic 90s/2000s handheld **Br
 
 | Option | Description |
 |--------|-------------|
-| **SLIDE** | Bigger left/right-only buttons (touch-friendly). Default OFF |
+| **BIG 3** | Large Down/Left/Right buttons (touch-friendly). Default OFF |
 | **HOLD** | Hold button to auto-repeat |
 | **GHOST** | Tetris landing preview piece |
 | **GREEN** | Pure classic green LCD colours |
