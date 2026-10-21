@@ -234,7 +234,7 @@
   // ========== AUDIO & SETTINGS ==========
   let soundOn   = localStorage.getItem('bg_sound')  !== '0';
   let bigMode = localStorage.getItem('bg_big')  === '1'; // 3 big buttons ↓◀▶, default OFF
-  let ghostOn   = localStorage.getItem('bg_ghost')  !== '0'; // Tetris ghost piece
+  let ghostOn   = localStorage.getItem('bg_ghost')  !== '0'; // brick-drop landing preview
   let holdRepeat= localStorage.getItem('bg_hold')   !== '0'; // classic hold-to-repeat
   let greenScreen = localStorage.getItem('bg_green') === '1'; // pure green LCD
   let lang = localStorage.getItem('bg_lang') || 'en'; // 'en' | 'el'
@@ -502,13 +502,13 @@
 
   // ========== GAME STATE MACHINE ==========
   const MODES = [
-    { id:'A', name:'BRICK',   desc:'Classic Tetris' },
-    { id:'B', name:'BRICK B', desc:'Tetris + Garbage' },
+    { id:'A', name:'BRICK',   desc:'Falling bricks' },
+    { id:'B', name:'BRICK B', desc:'Bricks + garbage rows' },
     { id:'C', name:'RACE',    desc:'Dodge the cars' },
     { id:'D', name:'SNAKE',   desc:'Eat & grow' },
     { id:'E', name:'SHOOT',   desc:'Clear the blocks' },
-    { id:'F', name:'TANK',    desc:'Battle City lite' },
-    { id:'G', name:'BREAK',   desc:'Breakout' },
+    { id:'F', name:'TANK',    desc:'Tank battle' },
+    { id:'G', name:'BREAK',   desc:'Brick breaker' },
     { id:'H', name:'FROG',    desc:'Cross the road' }
   ];
 
@@ -682,7 +682,7 @@
     el.addEventListener('click', h);
   }
 
-  // ========== TETRIS (A & B) ==========
+  // ========== BRICK DROP (A & B) ==========
   const SHAPES = {
     I: [[0,1],[1,1],[2,1],[3,1]],
     O: [[1,0],[2,0],[1,1],[2,1]],
@@ -694,20 +694,20 @@
   };
   const KEYS = Object.keys(SHAPES);
 
-  function makeTetris(isB){
+  function makeBricks(isB){
     const COMBO_MSGS = {
       en: {2:'GOOD!', 3:'GREAT!', 4:'EXCELLENT!', 5:'AMAZING!', 6:'UNREAL!', 7:'GODLIKE!', 8:'LEGENDARY!'},
       el: {2:'ΚΑΛΑ!', 3:'ΤΕΛΕΙΑ!', 4:'ΕΞΑΙΡΕΤΙΚΑ!', 5:'ΑΠΙΣΤΕΥΤΟ!', 6:'ΘΕΙΚΟ!', 7:'ΘΡΥΛΙΚΟ!', 8:'ΘΕΟΣ!'}
     };
-    const TETRIS_MSGS = {
-      en: {1:'TETRIS!', 2:'DOUBLE TETRIS!', 3:'TRIPLE TETRIS!', 4:'QUAD TETRIS!', 5:'PENTA TETRIS!'},
-      el: {1:'ΤΕΤΡΙΣ!', 2:'ΔΙΠΛΟ ΤΕΤΡΙΣ!', 3:'ΤΡΙΠΛΟ ΤΕΤΡΙΣ!', 4:'ΤΕΤΡΑΠΛΟ!', 5:'ΠΕΝΤΑΠΛΟ!'}
+    const QUAD_MSGS = {
+      en: {1:'4 LINES!', 2:'DOUBLE 4!', 3:'TRIPLE 4!', 4:'QUAD 4!', 5:'PENTA 4!'},
+      el: {1:'4 ΓΡΑΜΜΕΣ!', 2:'ΔΙΠΛΟ 4!', 3:'ΤΡΙΠΛΟ 4!', 4:'ΤΕΤΡΑΠΛΟ 4!', 5:'ΠΕΝΤΑΠΛΟ 4!'}
     };
     return {
       grid: null, cur: null, curType: null, curRot: 0, nextType: null,
       score: 0, level: 1, lines: 0, dropInterval: 800, dropAcc: 0,
       gameOver: false,
-      combo: 0, tetrisStreak: 0,
+      combo: 0, quadStreak: 0,
       splash: null, splashTimer: 0,
       init(){
         this.grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
@@ -715,7 +715,7 @@
         this.level = levelSelect;
         this.dropInterval = Math.max(120, 900 - (speedSelect-1)*55 - (this.level-1)*35);
         this.dropAcc=0; this.gameOver=false;
-        this.combo=0; this.tetrisStreak=0;
+        this.combo=0; this.quadStreak=0;
         this.splash=null; this.splashTimer=0;
         if (isB){
           const garbage = Math.min(12, 2 + levelSelect*2);
@@ -815,15 +815,15 @@
           if (newLev > this.level){ this.level=newLev; sfx('level'); this.dropInterval=Math.max(80,this.dropInterval-40); }
           else sfx('line');
 
-          // tetris streak (4-line clears)
+          // streak of 4-line clears
           if (cleared === 4) {
-            this.tetrisStreak++;
-            const tMsgs = TETRIS_MSGS[lang] || TETRIS_MSGS.en;
-            const tKey = Math.min(this.tetrisStreak, 5);
+            this.quadStreak++;
+            const tMsgs = QUAD_MSGS[lang] || QUAD_MSGS.en;
+            const tKey = Math.min(this.quadStreak, 5);
             this.showSplash(tMsgs[tKey] || tMsgs[5], 1300);
             sfx('level');
           } else {
-            this.tetrisStreak = 0;
+            this.quadStreak = 0;
             // combo splash from 2nd consecutive clear
             if (this.combo >= 2) {
               const cMsgs = COMBO_MSGS[lang] || COMBO_MSGS.en;
@@ -838,7 +838,7 @@
         } else {
           // locked piece with no lines → reset combos
           this.combo = 0;
-          this.tetrisStreak = 0;
+          this.quadStreak = 0;
         }
       },
       die(){
@@ -874,7 +874,7 @@
           }
           this.cur.forEach(p=>drawCell(p.x,p.y,true));
         }
-        // combo / tetris splash in center of board
+        // combo / 4-line splash in center of board
         if (this.splash && this.splashTimer > 0) {
           const alpha = Math.min(1, this.splashTimer / 200);
           bctx.save();
@@ -894,8 +894,8 @@
           bctx.globalAlpha = alpha;
           bctx.fillStyle = pixelOn;
           bctx.fillText(this.splash, bx, by);
-          // small combo counter under splash if combo >= 2 and not tetris msg
-          if (this.combo >= 2 && this.tetrisStreak === 0) {
+          // small combo counter under splash if combo >= 2 and not a 4-line msg
+          if (this.combo >= 2 && this.quadStreak === 0) {
             bctx.font = `${Math.floor(fontSize*0.7)}px VT323, monospace`;
             bctx.fillText('COMBO x' + this.combo, bx, by + fontSize * 0.9);
           }
@@ -1281,7 +1281,7 @@
     };
   }
 
-  // ========== BREAKOUT (G) ==========
+  // ========== BRICK BREAKER (G) ==========
   function makeBreak(){
     return {
       paddleX: 3, ballX:5, ballY:12, ballDX:0.12, ballDY:-0.12,
@@ -1371,7 +1371,7 @@
     };
   }
 
-  // ========== FROGGER (H) ==========
+  // ========== FROG (H) ==========
   function makeFrog(){
     return {
       fx:4, fy:18, score:0, level:1, lives:3, acc:0, gameOver:false,
@@ -1503,15 +1503,15 @@
   // ========== FACTORY ==========
   function createGame(modeId){
     switch(modeId){
-      case 'A': return makeTetris(false);
-      case 'B': return makeTetris(true);
+      case 'A': return makeBricks(false);
+      case 'B': return makeBricks(true);
       case 'C': return makeRace();
       case 'D': return makeSnake();
       case 'E': return makeShoot();
       case 'F': return makeTank();
       case 'G': return makeBreak();
       case 'H': return makeFrog();
-      default: return makeTetris(false);
+      default: return makeBricks(false);
     }
   }
 

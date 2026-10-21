@@ -10,14 +10,14 @@ A faithful Progressive Web App recreation of the classic 90s/2000s handheld **Br
 
 - Authentic beige handheld shell + green LCD look
 - **8 classic games:**
-  - **A** BRICK – Classic Tetris
-  - **B** BRICK B – Tetris with garbage rows
+  - **A** BRICK – Classic falling bricks
+  - **B** BRICK B – Falling bricks with garbage rows
   - **C** RACE – Car dodging
   - **D** SNAKE
   - **E** SHOOT – Vertical block shooter
-  - **F** TANK – Battle City lite
-  - **G** BREAK – Breakout / Arkanoid
-  - **H** FROG – Frogger
+  - **F** TANK – Tank battle
+  - **G** BREAK – Brick breaker
+  - **H** FROG – Cross the road and river
 - Level (1–9) + Speed (1–9) select
 - High scores saved per mode
 - Simple LCD-style beep sounds
@@ -25,7 +25,7 @@ A faithful Progressive Web App recreation of the classic 90s/2000s handheld **Br
 - English + Greek language
 - Green LCD palette option
 - Touch-friendly **BIG 3** layout (large ↓ ◀ ▶ buttons)
-- Combo & Tetris streak splash messages
+- Combo & 4-line streak splash messages
 
 ## Controls
 
@@ -45,7 +45,7 @@ A faithful Progressive Web App recreation of the classic 90s/2000s handheld **Br
 |--------|-------------|
 | **BIG 3** | Large Down/Left/Right buttons (touch-friendly). Default OFF |
 | **HOLD** | Hold button to auto-repeat |
-| **GHOST** | Tetris landing preview piece |
+| **GHOST** | Landing preview of the falling piece |
 | **GREEN** | Pure classic green LCD colours |
 | **SOUND** | Beeps on/off |
 | **LANG** | English / Ελληνικά |
