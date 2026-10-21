@@ -500,6 +500,17 @@
     return cur;
   }
 
+  // Called by every game when it ends; saves the high score once
+  function endGame(g, titleKey='gameOver'){
+    g.gameOver = true;
+    state = 'over';
+    sfx('die');
+    hiscore = saveHi(currentMode.id, g.score);
+    showOverlay(t(titleKey), t('score') + ' ' + g.score, t('pressReset'));
+  }
+  // Running high score shown in the HUD; persisted by endGame()
+  function liveHi(score){ hiscore = Math.max(hiscore, score); return hiscore; }
+
   // ========== GAME STATE MACHINE ==========
   const MODES = [
     { id:'A', name:'BRICK',   desc:'Falling bricks' },
@@ -790,6 +801,7 @@
       },
       lock(){
         for (const p of this.cur) if (p.y>=0) this.grid[p.y][p.x]=this.curType;
+        if (this.cur.some(p=>p.y<0)) { this.die(); return; }
         sfx('lock');
         this.clearLines();
         this.spawn();
@@ -833,7 +845,7 @@
             }
           }
 
-          hiscore = saveHi(currentMode.id, this.score);
+          liveHi(this.score);
           updateHUD(this.score, this.level, hiscore, t('next'), t('hi'));
         } else {
           // locked piece with no lines → reset combos
@@ -842,10 +854,7 @@
         }
       },
       die(){
-        this.gameOver=true;
-        sfx('die');
-        state='over';
-        showOverlay(t('gameOver'), t('score') + ' ' + this.score, t('pressReset'));
+        endGame(this);
       },
       update(dt){
         if (this.gameOver) return;
@@ -927,7 +936,7 @@
     return {
       playerLane: 1, // 0 1 2
       cars: [], score:0, level:1, speed:0, acc:0, spawnAcc:0, gameOver:false,
-      lanes: [2, 4, 6], // x positions
+      lanes: [1, 4, 7], // x positions (cars are 2 wide)
       init(){
         this.playerLane=1; this.cars=[]; this.score=0;
         this.level=levelSelect; this.speed = 0.55 + (speedSelect-1)*0.12 + (levelSelect-1)*0.06;
@@ -949,7 +958,7 @@
         this.cars.forEach(c=> c.y += step);
         // remove offscreen + score
         this.cars = this.cars.filter(c=>{
-          if (c.y > ROWS){ this.score += 10; hiscore=saveHi('C',this.score); updateHUD(this.score,this.level,hiscore,t('cars'),t('hi')); sfx('score'); return false; }
+          if (c.y > ROWS){ this.score += 10; liveHi(this.score); updateHUD(this.score,this.level,hiscore,t('cars'),t('hi')); sfx('score'); return false; }
           return true;
         });
         // spawn
@@ -971,8 +980,7 @@
         }
       },
       die(){
-        this.gameOver=true; sfx('die'); state='over';
-        showOverlay(t('crash'), t('score') + ' ' + this.score, t('pressReset'));
+        endGame(this, 'crash');
       },
       draw(){
         clearBoard();
@@ -981,8 +989,7 @@
         for (let y=0;y<ROWS;y++){
           if (Math.floor(y/2)%2===0){
             drawCell(3,y,true,0.5);
-            drawCell(5,y,true,0.5);
-            drawCell(7,y,true,0.5);
+            drawCell(6,y,true,0.5);
           }
         }
         bctx.globalAlpha=1;
@@ -1039,9 +1046,8 @@
           this.body.unshift(nh);
           if (nh.x===this.food.x && nh.y===this.food.y){
             this.score += 10;
-            this.grow += 1;
             sfx('eat');
-            hiscore = saveHi('D', this.score);
+            liveHi(this.score);
             if (this.score % 50 === 0){ this.level++; this.moveInterval=Math.max(80,this.moveInterval-10); sfx('level'); }
             updateHUD(this.score, this.level, hiscore, t('food'), t('hi'));
             this.placeFood();
@@ -1050,8 +1056,7 @@
         }
       },
       die(){
-        this.gameOver=true; sfx('die'); state='over';
-        showOverlay(t('gameOver'), t('score') + ' ' + this.score, t('pressReset'));
+        endGame(this);
       },
       draw(){
         clearBoard();
@@ -1121,7 +1126,7 @@
               this.bullets.splice(i,1);
               this.score += 20;
               sfx('hit');
-              hiscore=saveHi('E',this.score);
+              liveHi(this.score);
               updateHUD(this.score,this.level,hiscore,t('live'),t('hi'));
               break;
             }
@@ -1138,10 +1143,7 @@
         this.drawSide();
         sfx('die');
         this.enemies = this.enemies.filter(e=>e.y < ROWS-3);
-        if (this.lives<=0){
-          this.gameOver=true; state='over';
-          showOverlay(t('gameOver'), t('score') + ' ' + this.score, t('pressReset'));
-        }
+        if (this.lives<=0) endGame(this);
       },
       shoot(){
         if (this.bullets.length < 3){
@@ -1233,7 +1235,7 @@
               if (Math.abs(b.x-e.x)<0.8 && Math.abs(b.y-e.y)<0.8){
                 this.enemies.splice(j,1); this.bullets.splice(i,1);
                 this.score+=50; sfx('hit');
-                hiscore=saveHi('F',this.score);
+                liveHi(this.score);
                 if (this.score%200===0){ this.level++; sfx('level'); }
                 updateHUD(this.score,this.level,hiscore,t('live'),t('hi'));
                 break;
@@ -1243,8 +1245,7 @@
             if (Math.abs(b.x-this.px)<0.8 && Math.abs(b.y-this.py)<0.8){
               this.bullets.splice(i,1);
               this.lives--; this.drawSide(); sfx('die');
-              if (this.lives<=0){ this.gameOver=true; state='over';
-                showOverlay(t('gameOver'), t('score') + ' ' + this.score, t('pressReset')); }
+              if (this.lives<=0) endGame(this);
             }
           }
         }
@@ -1330,8 +1331,7 @@
           this.started=false;
           this.ballX = this.paddleX+1; this.ballY=14;
           this.ballDY=-Math.abs(this.ballDY);
-          if (this.lives<=0){ this.gameOver=true; state='over';
-            showOverlay(t('gameOver'), t('score') + ' ' + this.score, t('pressReset')); }
+          if (this.lives<=0) endGame(this);
         }
         // bricks
         for (let i=this.bricks.length-1;i>=0;i--){
@@ -1341,7 +1341,7 @@
             this.ballDY *= -1;
             this.score += 15;
             sfx('hit');
-            hiscore=saveHi('G',this.score);
+            liveHi(this.score);
             updateHUD(this.score,this.level,hiscore,t('live'),t('hi'));
             break;
           }
@@ -1447,7 +1447,7 @@
             this.home[slot]=true;
             this.score += 100;
             sfx('score');
-            hiscore=saveHi('H',this.score);
+            liveHi(this.score);
             updateHUD(this.score,this.level,hiscore,t('live'),t('hi'));
             this.fx=4; this.fy=18;
             if (this.home.every(h=>h)){
@@ -1462,10 +1462,7 @@
       die(){
         this.lives--; this.drawSide(); sfx('die');
         this.fx=4; this.fy=18;
-        if (this.lives<=0){
-          this.gameOver=true; state='over';
-          showOverlay(t('gameOver'), t('score') + ' ' + this.score, t('pressReset'));
-        }
+        if (this.lives<=0) endGame(this);
       },
       move(dx,dy){
         const nx=this.fx+dx, ny=this.fy+dy;
@@ -1627,6 +1624,7 @@
     else drawMenu();
   }
   function doReset(){
+    if (G && currentMode && !G.gameOver) saveHi(currentMode.id, G.score);
     state='menu';
     G=null;
     hideOverlay();
@@ -1677,7 +1675,11 @@
   });
 
   // auto-pause when switching apps / tabs
-  document.addEventListener('visibilitychange', ()=>{ if (document.hidden && state==='play') togglePause(); });
+  document.addEventListener('visibilitychange', ()=>{
+    if (!document.hidden) return;
+    if (G && currentMode && !G.gameOver) saveHi(currentMode.id, G.score);
+    if (state==='play') togglePause();
+  });
 
   // prevent scroll
   document.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
