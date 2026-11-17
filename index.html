@@ -439,19 +439,118 @@
     redrawScreen();
   }
 
-  function beep(freq, dur, type='square', vol=0.08){
+  // Game Boy-style voices: two pulse channels and one noise channel.
+  // A new note on a channel cuts whatever that channel was playing.
+  const gbCh = { p1: [], p2: [], ns: [] };
+  const gbWaves = {};
+  const gbNoiseBuf = {};
+
+  function gbDutyWave(duty){
+    const key = String(duty);
+    if (gbWaves[key]) return gbWaves[key];
+    const n = 48;
+    const real = new Float32Array(n);
+    const imag = new Float32Array(n);
+    for (let k = 1; k < n; k++) real[k] = Math.sin(Math.PI * k * duty) * 2 / (k * Math.PI);
+    gbWaves[key] = audioCtx.createPeriodicWave(real, imag);
+    return gbWaves[key];
+  }
+  function gbCut(list){
+    const now = audioCtx.currentTime;
+    for (const node of list){
+      // stop() before a node's start time throws, so cut future notes at their start
+      try { node.stop(Math.max(now, node.__gbStart || now)); } catch(e){}
+    }
+    list.length = 0;
+  }
+  function gbEnv(gain, vol, t0, dur){
+    const steps = 7;
+    const attack = Math.min(0.004, dur * 0.25);
+    gain.gain.setValueAtTime(0.0008, t0);
+    gain.gain.linearRampToValueAtTime(vol, t0 + attack);
+    for (let i = 1; i <= steps; i++){
+      const v = Math.max(0.0008, vol * (1 - i / steps));
+      gain.gain.linearRampToValueAtTime(v, t0 + attack + (dur - attack) * (i / steps));
+    }
+  }
+  // notes: {f, ms, duty, vol, slide} played one after another on one pulse channel
+  function gbPulse(ch, notes){
     if (!soundOn || !audioCtx) return;
     try {
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = type;
-      o.frequency.value = freq;
-      g.gain.value = vol;
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start();
-      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-      o.stop(audioCtx.currentTime + dur);
+      gbCut(gbCh[ch]);
+      let t = audioCtx.currentTime;
+      for (const n of notes){
+        const dur = Math.max(0.02, n.ms / 1000);
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.setPeriodicWave(gbDutyWave(n.duty == null ? 0.5 : n.duty));
+        const f0 = Math.max(40, n.f);
+        o.frequency.setValueAtTime(f0, t);
+        if (n.slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f0 + n.slide), t + dur);
+        gbEnv(g, n.vol == null ? 0.07 : n.vol, t, dur);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.__gbStart = t;
+        o.start(t);
+        o.stop(t + dur + 0.02);
+        gbCh[ch].push(o);
+        t += dur;
+      }
     } catch(e){}
+  }
+  // LFSR noise. short = 7-bit (metallic), otherwise 15-bit (hiss). step stretches each bit.
+  function gbNoiseBuffer(short, step){
+    const key = (short ? 's' : 'l') + step;
+    if (gbNoiseBuf[key]) return gbNoiseBuf[key];
+    const samples = short ? 127 * step * 8 : 12000;
+    const buf = audioCtx.createBuffer(1, samples, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    let lfsr = 0x7fff;
+    let acc = 0;
+    let sample = 0.5;
+    for (let i = 0; i < samples; i++){
+      if (acc <= 0){
+        const bit = lfsr & 1;
+        sample = bit ? 0.5 : -0.5;
+        const xor = bit ^ ((lfsr >> 1) & 1);
+        lfsr = (lfsr >> 1) | (xor << 14);
+        if (short) lfsr = (lfsr & ~(1 << 6)) | (xor << 6);
+        lfsr &= 0x7fff;
+        if (!lfsr) lfsr = 0x7fff;
+        acc = step;
+      }
+      data[i] = sample;
+      acc--;
+    }
+    gbNoiseBuf[key] = buf;
+    return buf;
+  }
+  function gbNoise(ms, opts){
+    if (!soundOn || !audioCtx) return;
+    const o = opts || {};
+    try {
+      gbCut(gbCh.ns);
+      const dur = Math.max(0.02, ms / 1000);
+      const t = audioCtx.currentTime;
+      const src = audioCtx.createBufferSource();
+      src.buffer = gbNoiseBuffer(!!o.short, o.step || 4);
+      src.loop = true;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      const startF = o.short ? 1600 : 4800;
+      filter.frequency.setValueAtTime(startF, t);
+      if (o.slide) filter.frequency.exponentialRampToValueAtTime(Math.max(120, startF + o.slide), t + dur);
+      const g = audioCtx.createGain();
+      gbEnv(g, o.vol == null ? 0.06 : o.vol, t, dur);
+      src.connect(filter); filter.connect(g); g.connect(audioCtx.destination);
+      src.__gbStart = t;
+      src.start(t);
+      src.stop(t + dur + 0.02);
+      gbCh.ns.push(src);
+    } catch(e){}
+  }
+  function beep(freq, dur, type='square', vol=0.08){
+    const duty = type === 'triangle' ? 0.125 : type === 'sawtooth' ? 0.25 : 0.5;
+    gbPulse('p2', [{ f: freq, ms: Math.max(20, dur * 1000), duty: duty, vol: vol }]);
   }
   function buzz(pattern){
     if (vibrateOn && navigator.vibrate) { try { navigator.vibrate(pattern); } catch(e){} }
@@ -461,20 +560,61 @@
     if (BUZZ[name]) buzz(BUZZ[name]);
     if (!soundOn) return;
     switch(name){
-      case 'move': beep(220, 0.04); break;
-      case 'rotate': beep(330, 0.06); break;
-      case 'drop': beep(110, 0.08); break;
-      case 'lock': beep(180, 0.1); break;
-      case 'line': beep(440, 0.12); setTimeout(()=>beep(550,0.12),80); setTimeout(()=>beep(660,0.15),160); break;
-      case 'score': beep(520, 0.08); break;
-      case 'die': beep(150, 0.2, 'sawtooth'); setTimeout(()=>beep(100,0.3,'sawtooth'),150); break;
-      case 'level': beep(400,0.1); setTimeout(()=>beep(500,0.1),100); setTimeout(()=>beep(600,0.15),200); break;
-      case 'select': beep(300, 0.05); break;
-      case 'start': beep(350,0.08); setTimeout(()=>beep(450,0.1),90); break;
-      case 'eat': beep(600, 0.07); break;
-      case 'shoot': beep(800, 0.04, 'square', 0.06); break;
-      case 'hit': beep(200, 0.08, 'triangle'); break;
-      case 'jump': beep(500, 0.06); setTimeout(()=>beep(700,0.05),50); break;
+      case 'move':
+        gbPulse('p2', [{ f: 988, ms: 28, duty: 0.125, vol: 0.05 }]); break;
+      case 'rotate':
+        gbPulse('p2', [
+          { f: 740, ms: 36, duty: 0.25, vol: 0.06 },
+          { f: 988, ms: 44, duty: 0.25, vol: 0.06 }
+        ]); break;
+      case 'drop':
+        gbPulse('p1', [{ f: 392, ms: 90, duty: 0.5, vol: 0.07, slide: -280 }]);
+        gbNoise(50, { vol: 0.04, short: true, step: 6 }); break;
+      case 'lock':
+        gbPulse('p1', [{ f: 196, ms: 70, duty: 0.25, vol: 0.07 }]);
+        gbNoise(45, { vol: 0.05, step: 4 }); break;
+      case 'line':
+        gbPulse('p1', [
+          { f: 523, ms: 70, duty: 0.5, vol: 0.07 },
+          { f: 659, ms: 70, duty: 0.5, vol: 0.07 },
+          { f: 784, ms: 70, duty: 0.5, vol: 0.07 },
+          { f: 1046, ms: 120, duty: 0.5, vol: 0.07 }
+        ]);
+        gbNoise(40, { vol: 0.03, short: true, step: 3 }); break;
+      case 'score':
+        gbPulse('p2', [
+          { f: 1319, ms: 40, duty: 0.125, vol: 0.055 },
+          { f: 1568, ms: 70, duty: 0.125, vol: 0.055 }
+        ]); break;
+      case 'die':
+        gbPulse('p1', [{ f: 440, ms: 420, duty: 0.25, vol: 0.08, slide: -370 }]);
+        gbNoise(460, { vol: 0.07, short: true, step: 12, slide: -1200 }); break;
+      case 'level':
+        gbPulse('p1', [
+          { f: 523, ms: 80, duty: 0.5, vol: 0.07 },
+          { f: 659, ms: 80, duty: 0.5, vol: 0.07 },
+          { f: 784, ms: 80, duty: 0.5, vol: 0.07 },
+          { f: 1046, ms: 170, duty: 0.25, vol: 0.075 }
+        ]); break;
+      case 'select':
+        gbPulse('p2', [{ f: 880, ms: 26, duty: 0.125, vol: 0.045 }]); break;
+      case 'start':
+        gbPulse('p1', [
+          { f: 523, ms: 70, duty: 0.25, vol: 0.07 },
+          { f: 659, ms: 70, duty: 0.25, vol: 0.07 },
+          { f: 784, ms: 70, duty: 0.5, vol: 0.07 },
+          { f: 1046, ms: 150, duty: 0.5, vol: 0.075 }
+        ]); break;
+      case 'eat':
+        gbPulse('p2', [{ f: 1046, ms: 80, duty: 0.125, vol: 0.06, slide: 520 }]); break;
+      case 'shoot':
+        gbPulse('p2', [{ f: 1480, ms: 45, duty: 0.125, vol: 0.05, slide: 420 }]);
+        gbNoise(32, { vol: 0.045, step: 2 }); break;
+      case 'hit':
+        gbNoise(60, { vol: 0.07, step: 3 });
+        gbPulse('p2', [{ f: 220, ms: 50, duty: 0.25, vol: 0.05 }]); break;
+      case 'jump':
+        gbPulse('p1', [{ f: 420, ms: 110, duty: 0.25, vol: 0.07, slide: 540 }]); break;
     }
   }
 
@@ -2980,7 +3120,7 @@
     get G(){ return G; }, get state(){ return state; },
     get menuIndex(){ return menuIndex; }, set menuIndex(v){ menuIndex = v; },
     startMode(i){ menuIndex = i + 1; startPlay(); }, startDaily(){ menuIndex = 0; startPlay(); },
-    MAZE, MODES, stats, unlocked, dailyInfo, loadTop, isNativeRandom: () => Math.random === nativeRandom,
+    MAZE, MODES, stats, unlocked, dailyInfo, loadTop, sfx, isNativeRandom: () => Math.random === nativeRandom,
   };
 
   // boot

@@ -36,7 +36,7 @@ A Progressive Web App recreation of the classic 90s/2000s handheld **Brick Game*
 - **Daily challenge**, stats page and 13 awards
 - Touch, swipe, keyboard and **gamepad** controls
 - Portrait and landscape layouts
-- LCD-style beeps and vibration
+- Game Boy-style pulse and noise sounds, plus vibration
 - Full offline PWA (installable on phone)
 - English + Greek language
 

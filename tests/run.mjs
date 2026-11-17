@@ -67,6 +67,9 @@ async function swipe(p, x0, y0, x1, y1, ms = 200, steps = 8){
   await p.reload(); await p.waitForFunction(() => window.__T);
   ok('boots with the old GREEN setting (migrated to theme)', p.errors.length === 0 && await state(p) === 'menu');
   ok('no page errors on boot', p.errors.length === 0);
+  const names = ['move','rotate','drop','lock','line','score','die','level','select','start','eat','shoot','hit','jump'];
+  await ev(p, list => { for (const n of list) __T.sfx(n); __T.sfx('line'); __T.sfx('level'); __T.sfx('die'); }, names);
+  ok('game boy sfx play without errors', p.errors.length === 0);
   await p.context().close();
 }
 
