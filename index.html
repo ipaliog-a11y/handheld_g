@@ -113,7 +113,8 @@
   .overlay .small { font-size: 14px; opacity: 0.85; line-height: 1.3; }
   .overlay .tiny { font-size: 12px; opacity: 0.7; margin-top: 6px; white-space: pre-line; }
   .overlay .opts { font-size: 18px; line-height: 1.5; margin-top: 6px; text-align: left; }
-  .overlay .opts div { padding: 0 6px; }
+  .overlay .opts div { padding: 0 6px; border-radius: 2px; }
+  .overlay .opts div[data-opt] { cursor: pointer; }
   .overlay .opts .sel { background: var(--pixel-on); color: var(--screen-bg); }
   .toast {
     position: absolute; left: 8px; right: 8px; top: 8px; z-index: 20;
@@ -193,7 +194,7 @@
 
   /* ===== Landscape phones: controls either side of the screen ===== */
   @media (orientation: landscape) and (max-height: 560px) {
-    :root { --dpad: clamp(120px, 34vh, 160px); --rbtn: clamp(56px, 17vh, 70px); }
+    :root { --dpad: clamp(112px, 32vh, 156px); --rbtn: clamp(54px, 16vh, 68px); }
     .device {
       width: min(98vw, 900px);
       height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 8px);
@@ -202,10 +203,17 @@
       grid-template-rows: 1fr auto;
       grid-template-areas: "dpad screen abtns" "dpad pills abtns";
       padding: 8px 14px;
-      column-gap: 18px; row-gap: 6px;
+      column-gap: 14px; row-gap: 6px;
     }
     .brand { display: none; }
-    .screen-wrap { grid-area: screen; width: calc((100dvh - 80px) * 0.5 + 120px); padding: 6px; }
+    .screen-wrap { grid-area: screen; width: min(calc((100dvh - 76px) * 0.5 + 114px), 62vw); padding: 6px; }
+    .screen { padding: 6px; gap: 6px; }
+    .side { width: 70px; gap: 3px; justify-content: space-between; overflow: hidden; }
+    .panel { padding: 2px 3px; border-width: 1.5px; }
+    .panel .lbl { font-size: 10px; line-height: 1; }
+    .panel .val { font-size: 16px; line-height: 1.05; }
+    .panel .val.small { font-size: 12px; line-height: 1; }
+    canvas.mini { height: 30px; }
     .bottom-row { grid-area: pills; }
     .controls { display: contents; }
     .dpad { grid-area: dpad; align-self: center; justify-self: center; }
@@ -295,10 +303,14 @@
   let theme      = store.get('bg_theme', store.get('bg_green', '0') === '1' ? 'green' : 'classic');
   let lang       = store.get('bg_lang', 'en');          // 'en' | 'el'
   const AC = window.AudioContext || window.webkitAudioContext;
-  const audioCtx = AC ? new AC() : null;
-  // Browsers start audio suspended until a user gesture; resume on any touch/click/key
-  function unlockAudio(){ if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
-  ['touchstart','pointerdown','keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, {capture:true, passive:true}));
+  let audioCtx = null;
+  function ensureAudio(){
+    if (!audioCtx && AC) { try { audioCtx = new AC(); } catch(e){ audioCtx = null; } }
+    if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch(e){} }
+    return audioCtx;
+  }
+  // Browsers start audio suspended until a user gesture; create/resume on first interaction
+  ['touchstart','pointerdown','keydown'].forEach(ev => document.addEventListener(ev, ensureAudio, {capture:true, passive:true}));
 
   // ===== i18n =====
   const I18N = {
@@ -356,7 +368,7 @@
       muteBtn: 'MUTE',
       reset: 'RESET',
       // button captions
-      b_rot: 'ROT', b_drop: 'DROP', b_fire: 'FIRE', b_go: 'GO', b_jump: 'JUMP',
+      b_rot: 'ROT', b_drop: 'DROP', b_fire: 'FIRE', b_go: 'GO', b_jump: 'JUMP', b_duck: 'DUCK',
       b_stop: 'STOP', b_ok: 'OK', b_back: 'BACK', b_swap: 'SWAP', b_turbo: 'TURBO', b_none: '·',
       // themes
       th_classic: 'CLASSIC', th_green: 'GREEN', th_grey: 'GREY', th_amber: 'AMBER', th_blue: 'BLUE',
@@ -403,7 +415,7 @@
       daily: 'ΗΜΕΡΗΣΙΟ', statsItem: 'ΣΤΑΤΙΣΤ.', awardsItem: 'ΒΡΑΒΕΙΑ',
       statsTitle: 'ΣΤΑΤΙΣΤΙΚΑ', awardsTitle: 'ΒΡΑΒΕΙΑ', anyBack: 'A/B = πίσω',
       newRecord: 'ΝΕΟ ΡΕΚΟΡ!', initialsHint: '▲▼ γράμμα  ◀▶ θέση\nA = OK',
-      bShare: 'B = κοινοποίηση', copied: 'ΑΝΤΙΓΡΑΦΗΚΕ!', top5: 'TOP 5', fixedSet: '(σταθερό)',
+      bShare: 'B = κοινοποίηση', copied: 'ΑΝΤΙΓΡΑΦΗΚΕ!', top5: 'TOP 5', fixedSet: '(σταθ.)',
       dailyDesc: 'Ίδιο για όλους', todayIs: 'Σήμερα:',
       b_again: 'ΞΑΝΑ', b_share: 'ΜΟΙΡΑΣΕ',
       linesLbl: 'ΓΡΑΜ',
@@ -414,7 +426,7 @@
       soundBtn: 'ΗΧΟΣ',
       muteBtn: 'ΣΙΩΠΗ',
       reset: 'RESET',
-      b_rot: 'ΠΕΡ', b_drop: 'ΡΙΞΕ', b_fire: 'ΒΟΛΗ', b_go: 'ΠΑΜΕ', b_jump: 'ΑΛΜΑ',
+      b_rot: 'ΠΕΡ', b_drop: 'ΡΙΞΕ', b_fire: 'ΒΟΛΗ', b_go: 'ΠΑΜΕ', b_jump: 'ΑΛΜΑ', b_duck: 'ΣΚΥΨΕ',
       b_stop: 'ΣΤΟΠ', b_ok: 'OK', b_back: 'ΠΙΣΩ', b_swap: 'ΑΛΛΑΓΗ', b_turbo: 'ΤΟΥΡΜΠΟ', b_none: '·',
       th_classic: 'ΚΛΑΣΙΚΟ', th_green: 'ΠΡΑΣΙΝΟ', th_grey: 'ΓΚΡΙ', th_amber: 'ΚΕΧΡΙΜΠ', th_blue: 'ΜΠΛΕ',
     }
@@ -422,8 +434,8 @@
   function t(key){ return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }
 
   function applyBigLayout(){
-    // Big L/R buttons only while actually playing a game
-    controlsEl.classList.toggle('big-mode', !!(bigMode && state === 'play'));
+    // Big L/R buttons only while playing games that don't require 4-way Up movement
+    controlsEl.classList.toggle('big-mode', !!(bigMode && state === 'play' && (!currentMode || !currentMode.fourWay)));
   }
 
   function applyLanguage(){
@@ -475,20 +487,22 @@
   }
   // notes: {f, ms, duty, vol, slide} played one after another on one pulse channel
   function gbPulse(ch, notes){
-    if (!soundOn || !audioCtx) return;
+    if (!soundOn) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
     try {
       gbCut(gbCh[ch]);
-      let t = audioCtx.currentTime;
+      let t = ctx.currentTime;
       for (const n of notes){
         const dur = Math.max(0.02, n.ms / 1000);
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
         o.setPeriodicWave(gbDutyWave(n.duty == null ? 0.5 : n.duty));
         const f0 = Math.max(40, n.f);
         o.frequency.setValueAtTime(f0, t);
         if (n.slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f0 + n.slide), t + dur);
         gbEnv(g, n.vol == null ? 0.07 : n.vol, t, dur);
-        o.connect(g); g.connect(audioCtx.destination);
+        o.connect(g); g.connect(ctx.destination);
         o.__gbStart = t;
         o.start(t);
         o.stop(t + dur + 0.02);
@@ -525,23 +539,25 @@
     return buf;
   }
   function gbNoise(ms, opts){
-    if (!soundOn || !audioCtx) return;
+    if (!soundOn) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
     const o = opts || {};
     try {
       gbCut(gbCh.ns);
       const dur = Math.max(0.02, ms / 1000);
-      const t = audioCtx.currentTime;
-      const src = audioCtx.createBufferSource();
+      const t = ctx.currentTime;
+      const src = ctx.createBufferSource();
       src.buffer = gbNoiseBuffer(!!o.short, o.step || 4);
       src.loop = true;
-      const filter = audioCtx.createBiquadFilter();
+      const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
       const startF = o.short ? 1600 : 4800;
       filter.frequency.setValueAtTime(startF, t);
       if (o.slide) filter.frequency.exponentialRampToValueAtTime(Math.max(120, startF + o.slide), t + dur);
-      const g = audioCtx.createGain();
+      const g = ctx.createGain();
       gbEnv(g, o.vol == null ? 0.06 : o.vol, t, dur);
-      src.connect(filter); filter.connect(g); g.connect(audioCtx.destination);
+      src.connect(filter); filter.connect(g); g.connect(ctx.destination);
       src.__gbStart = t;
       src.start(t);
       src.stop(t + dur + 0.02);
@@ -813,19 +829,19 @@
       desc:{en:'Bricks+garbage', el:'Τουβλα+σκουπ.'}, icon:['..#...','.###..','......','#.##.#','##.###'] },
     { id:'C', name:'RACE',    make:()=>makeRace(), btn:['b_none','b_none'],
       desc:{en:'Dodge the cars', el:'Απόφυγε αμάξια'}, icon:['.#..#.','###...','.#..#.','...###','.#..#.'] },
-    { id:'D', name:'SNAKE',   make:()=>makeSnake(), btn:['b_none','b_none'],
+    { id:'D', name:'SNAKE',   make:()=>makeSnake(), btn:['b_none','b_none'], fourWay:true,
       desc:{en:'Eat & grow', el:'Φάε & μεγάλωσε'}, icon:['......','.####.','.#....','.#..#.','.#....'] },
     { id:'E', name:'SHOOT',   make:()=>makeShoot(), btn:['b_fire','b_fire'],
       desc:{en:'Clear the blocks', el:'Καθάρισε τουβλα'}, icon:['#.##.#','.#..#.','......','..#...','.###..'] },
-    { id:'F', name:'TANK',    make:()=>makeTank(), btn:['b_fire','b_fire'],
+    { id:'F', name:'TANK',    make:()=>makeTank(), btn:['b_fire','b_fire'], fourWay:true,
       desc:{en:'Tank battle', el:'Μάχη τανκς'}, icon:['..#...','.###..','.#.#..','.###..','......'] },
     { id:'G', name:'BREAK',   make:()=>makeBreak(), btn:['b_go','b_go'],
       desc:{en:'Brick breaker', el:'Σπάσε τουβλα'}, icon:['######','#.##.#','......','..#...','.###..'] },
-    { id:'H', name:'FROG',    make:()=>makeFrog(), btn:['b_jump','b_jump'],
+    { id:'H', name:'FROG',    make:()=>makeFrog(), btn:['b_jump','b_jump'], fourWay:true,
       desc:{en:'Cross road+river', el:'Περάσε δρόμο'}, icon:['#.#.#.','......','###.##','..#...','......'] },
     { id:'I', name:'STACK',   make:()=>makeStack(), btn:['b_stop','b_stop'],
       desc:{en:'Stack the rows', el:'Στοίβαξε'}, icon:['..##..','..##..','.###..','.####.','######'] },
-    { id:'J', name:'RUNNER',  make:()=>makeRunner(), btn:['b_jump','b_jump'],
+    { id:'J', name:'RUNNER',  make:()=>makeRunner(), btn:['b_jump','b_duck'],
       desc:{en:'Jump & duck', el:'Άλμα & σκύψιμο'}, icon:['......','.#....','.#..#.','.#..#.','######'] },
     { id:'K', name:'FILL',    make:()=>makeFill(), btn:['b_fire','b_fire'],
       desc:{en:'Fill the rows', el:'Γέμισε γραμμές'}, icon:['######','##.###','......','..#...','.###..'] },
@@ -835,7 +851,7 @@
       desc:{en:'Stop the aliens', el:'Σταμάτα εξωγ.'}, icon:['#.#.#.','.#.#.#','......','..#...','.###..'] },
     { id:'N', name:'GEMS',    make:()=>makeGems(), btn:['b_swap','b_drop'], flick:true,
       desc:{en:'Match 3 gems', el:'Ταίριαξε 3'}, icon:['...#..','...#..','...#..','#..##.','##.###'] },
-    { id:'O', name:'MAZE',    make:()=>makeMaze(), btn:['b_none','b_none'],
+    { id:'O', name:'MAZE',    make:()=>makeMaze(), btn:['b_none','b_none'], fourWay:true,
       desc:{en:'Eat all dots', el:'Φάε τις τελείες'}, icon:['######','#....#','#.##.#','#..#.#','######'] },
     { id:'P', name:'RALLY',   make:()=>makeRally(), btn:['b_turbo','b_turbo'],
       desc:{en:'Race with fuel', el:'Αγώνας+καύσιμα'}, icon:['..#...','.###..','..#...','.#.#..','......'] },
@@ -961,7 +977,6 @@
     setExtra(null);
     updateHUD(played, '-', '-', t('mode'), t('hi'));
   }
-  let awardsTop = 0;
   function drawAwards(){
     clearBoard(); hideOverlay();
     const lines = ['  ' + t('awardsTitle') + ' ' + Object.keys(unlocked).length + '/' + AWARDS.length, ''];
@@ -975,9 +990,10 @@
 
   // ========== GAME OVER / INITIALS / SHARE ==========
   let lastResult = null;       // {title, score, key, rank, modeName, daily}
+  let activeDaily = null;      // snapshot of dailyInfo() when a daily run starts
   let initials = ['A','A','A'], initPos = 0;
   const INIT_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  function recordKey(){ return playingDaily ? dailyInfo().key : currentMode.id; }
+  function recordKey(){ return playingDaily && activeDaily ? activeDaily.key : currentMode.id; }
 
   // Called by every game when it ends
   function endGame(g, titleKey='gameOver'){
@@ -995,7 +1011,7 @@
     if (g.score >= 10000) award('score10k');
     const sa = SCORE_AWARDS[currentMode.id];
     if (sa && g.score >= sa[0]) award(sa[1]);
-    lastResult = { title: t(titleKey), score: g.score, key, rank: -1, modeName: currentMode.name, daily: playingDaily ? dailyInfo().date : null };
+    lastResult = { title: t(titleKey), score: g.score, key, rank: -1, modeName: currentMode.name, daily: playingDaily && activeDaily ? activeDaily.date : null };
     if (isRecord){
       state = 'initials';
       initials = store.get('bg_initials', 'AAA').padEnd(3, 'A').slice(0, 3).split('');
@@ -1020,6 +1036,18 @@
     showOverlay(lastResult.title, t('score') + ' ' + lastResult.score, t('pressReset') + '\n' + t('bShare'),
       topLines(lastResult.key), lastResult.rank);
   }
+  function fallbackCopy(text){
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-9999px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch(e){ return false; }
+  }
   function shareResult(){
     if (!lastResult) return;
     const url = location.href.split(/[?#]/)[0];
@@ -1027,11 +1055,12 @@
       ? `Έκανα ${lastResult.score} πόντους στο ${lastResult.modeName}`
       : `I scored ${lastResult.score} in ${lastResult.modeName}`)
       + (lastResult.daily ? ` (Daily ${lastResult.daily})` : '') + ' — BRICK GAME 9999 in 1 ' + url;
+    const shortToast = `${lastResult.modeName}: ${lastResult.score}`;
     if (navigator.share){
       navigator.share({ title: 'BRICK GAME', text }).catch(() => {});
-    } else if (navigator.clipboard){
-      navigator.clipboard.writeText(text).then(() => toast(t('copied')), () => toast(text));
-    } else toast(text);
+    } else if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(() => toast(t('copied')), () => toast(fallbackCopy(text) ? t('copied') : shortToast));
+    } else toast(fallbackCopy(text) ? t('copied') : shortToast);
   }
 
   // ========== GAMEPAD ==========
@@ -1056,6 +1085,7 @@
     if (cur.start && !padPrev.start) togglePause();
     if (cur.select && !padPrev.select) document.getElementById('btnSettings').dispatchEvent(new Event('pointerdown'));
     if (cur.hold && !padPrev.hold && state === 'play' && G && G.hold){ G.hold(); G.draw(); }
+    padDuckHeld = !!(cur.down || cur.b);
     Object.assign(padPrev, cur);
   }
 
@@ -1068,6 +1098,10 @@
   let menuTop = 0;     // first visible row of the scrolling game list
   let levelSelect = 1;
   let speedSelect = 1;
+  let savedLevelSelect = null;
+  let savedSpeedSelect = null;
+  let keyDuckHeld = false, btnDuckHeld = false, padDuckHeld = false;
+  function isDuckHeld(){ return keyDuckHeld || btnDuckHeld || padDuckHeld; }
   let settingsIndex = 0;
   let pauseIndex = 0;
   let currentMode = null;
@@ -1076,7 +1110,7 @@
   let lastTs = 0;
   let prevStateBeforeSettings = 'menu';
 
-  function showOverlay(title, sub, tiny, opts, sel){
+  function showOverlay(title, sub, tiny, opts, sel, onPick){
     overlayTitle.textContent = title || '';
     overlaySub.textContent = sub || '';
     overlayTiny.textContent = tiny || '';
@@ -1085,6 +1119,10 @@
       const d = document.createElement('div');
       d.textContent = (i === sel ? '> ' : '  ') + o;
       if (i === sel) d.className = 'sel';
+      if (onPick){
+        d.dataset.opt = String(i);
+        d.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); onPick(i); });
+      }
       overlayOpts.appendChild(d);
     });
     overlay.classList.add('show');
@@ -1174,8 +1212,8 @@
       ` ★${t('daily')} ${daily.date.slice(5)}`,
       ` ${m.id} ${m.name}`,
       ' ' + t('dailyDesc'),
-      ` ${t('level')}  ${daily.level}`,
-      ` ${t('speed')}  ${daily.speed}  ${t('fixedSet')}`,
+      ` ${t('level')} ${daily.level}`,
+      ` ${t('speed')} ${daily.speed} ${t('fixedSet')}`,
       ' ' + t('startPlay'),
     ] : [
       ` ${t('game')} ${m.id} ${m.name}`,
@@ -1233,7 +1271,7 @@
   const PAUSE_OPTS = ['resume', 'restart', 'settings', 'quit'];
   function showPauseMenu(){
     showOverlay(t('paused'), currentMode ? currentMode.name : '', t('pauseHint'),
-      PAUSE_OPTS.map(k => t(k)), pauseIndex);
+      PAUSE_OPTS.map(k => t(k)), pauseIndex, i => { pauseIndex = i; choosePause(); });
   }
   function choosePause(){
     const k = PAUSE_OPTS[pauseIndex];
@@ -1370,6 +1408,7 @@
       },
       rotate(){
         if (this.curType === 'O') return; // O doesn't rotate
+        const wasGrounded = this.grounded();
         const newRot = (this.curRot + 1) % 4;
         // rotate shape in its local box: 4x4 for I, 3x3 for the rest
         const n = this.curType === 'I' ? 3 : 2;
@@ -1391,15 +1430,16 @@
           if (!this.collides(cand)) {
             this.cur = cand;
             this.curRot = newRot;
-            this.groundedMove();
+            if (wasGrounded || this.grounded()) this.groundedMove();
             sfx('rotate');
             return;
           }
         }
       },
       move(dx,dy){
+        const wasGrounded = dx ? this.grounded() : false;
         const moved = this.cur.map(p=>({x:p.x+dx,y:p.y+dy}));
-        if (!this.collides(moved)){ this.cur=moved; if (dx) this.groundedMove(); return true; }
+        if (!this.collides(moved)){ this.cur=moved; if (dx && (wasGrounded || this.grounded())) this.groundedMove(); return true; }
         return false;
       },
       grounded(){ return this.collides(this.cur.map(p=>({x:p.x,y:p.y+1}))); },
@@ -1408,14 +1448,18 @@
       hardDrop(){
         let d=0;
         while(this.move(0,1)) d++;
-        this.lock();
-        sfx('drop');
+        if (d){
+          this.score += d * 2;
+          liveHi(this.score);
+          updateHUD(this.score, this.level, hiscore, t('next'), t('hi'));
+        }
+        this.lock(true);
       },
-      lock(){
+      lock(fromHardDrop=false){
         for (const p of this.cur) if (p.y>=0) this.grid[p.y][p.x]=this.curType;
         if (this.cur.some(p=>p.y<0)) { this.die(); return; }
-        sfx('lock');
-        this.clearLines();
+        const cleared = this.clearLines();
+        if (!cleared) sfx(fromHardDrop ? 'drop' : 'lock');
         this.spawn();
       },
       clearLines(){
@@ -1470,6 +1514,7 @@
           this.combo = 0;
           this.quadStreak = 0;
         }
+        return cleared;
       },
       die(){
         endGame(this);
@@ -1539,7 +1584,10 @@
       },
       onLeft(){ if(this.move(-1,0)) sfx('move'); },
       onRight(){ if(this.move(1,0)) sfx('move'); },
-      onDown(){ if(!this.move(0,1)) this.lock(); else sfx('move'); },
+      onDown(){
+        if (!this.move(0,1)) this.lock();
+        else { this.score += 1; liveHi(this.score); updateHUD(this.score, this.level, hiscore, t('next'), t('hi')); sfx('move'); }
+      },
       onUp(){ this.hold(); },
       onA(){ this.rotate(); },
       onB(){ this.hardDrop(); }
@@ -1550,19 +1598,22 @@
   function makeRace(){
     return {
       playerLane: 1, // 0 1 2
-      cars: [], score:0, level:1, speed:0, acc:0, spawnAcc:0, gameOver:false,
+      cars: [], score:0, level:1, speed:0, acc:0, spawnAcc:0, scroll:0, gameOver:false,
       lanes: [1, 4, 7], // x positions (cars are 2 wide)
       init(){
         this.playerLane=1; this.cars=[]; this.score=0;
         this.level=levelSelect; this.speed = 0.55 + (speedSelect-1)*0.12 + (levelSelect-1)*0.06;
-        this.acc=0; this.spawnAcc=0; this.gameOver=false;
+        this.acc=0; this.spawnAcc=0; this.scroll=0; this.gameOver=false;
         updateHUD(this.score, this.level, hiscore, t('cars'), t('hi'));
-        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        this.drawSide();
       },
+      drawSide(){ drawIcon(nctx, nextCanvas, MODES_BY_ID.C.icon); },
       spawnCar(){
         const lane = Math.floor(Math.random()*3);
-        // avoid instant collision
-        if (this.cars.some(c=>c.lane===lane && c.y < 4)) return;
+        // avoid same-lane overlap and never block all 3 lanes at once
+        if (this.cars.some(c=>c.lane===lane && c.y < 5)) return;
+        const busyTop = new Set(this.cars.filter(c=>c.y < 6).map(c=>c.lane));
+        if (busyTop.size >= 2) return;
         this.cars.push({lane, y: -3, w:2, h:3});
       },
       update(dt){
@@ -1570,6 +1621,7 @@
         this.acc += dt;
         this.spawnAcc += dt;
         const step = this.speed * (dt/16);
+        this.scroll += step;
         this.cars.forEach(c=> c.y += step);
         // remove offscreen + score
         this.cars = this.cars.filter(c=>{
@@ -1579,9 +1631,10 @@
         // spawn
         const spawnRate = Math.max(700, 1800 - this.level*60 - speedSelect*40);
         if (this.spawnAcc > spawnRate){ this.spawnAcc=0; this.spawnCar(); }
-        // level up
-        if (this.score > 0 && this.score % 200 === 0 && this.score/200 >= this.level){
-          this.level++; this.speed += 0.08; sfx('level');
+        // level up (cannot skip if multiple cars clear on the same frame)
+        const targetLev = Math.floor(this.score / 200) + levelSelect;
+        if (targetLev > this.level){
+          this.level = targetLev; this.speed += 0.08; sfx('level');
           updateHUD(this.score,this.level,hiscore,t('cars'),t('hi'));
         }
         // collision
@@ -1599,23 +1652,25 @@
       },
       draw(){
         clearBoard();
-        // road lines
-        bctx.globalAlpha=0.4;
+        // scrolling road lines
+        const off = Math.floor(this.scroll) % 4;
         for (let y=0;y<ROWS;y++){
-          if (Math.floor(y/2)%2===0){
-            drawCell(3,y,true,0.5);
-            drawCell(6,y,true,0.5);
+          if (((y - off) % 4 + 4) % 4 < 2){
+            drawCell(3,y,true,0.45);
+            drawCell(6,y,true,0.45);
           }
         }
-        bctx.globalAlpha=1;
-        // player car
+        // player car (full contrast)
         const px = this.lanes[this.playerLane];
         const py = ROWS-4;
         drawRect(px, py, 2, 3, true);
-        // enemy cars
+        // enemy cars (slightly softer with hollow middle feel)
         this.cars.forEach(c=>{
           const cx = this.lanes[c.lane];
-          drawRect(cx, Math.floor(c.y), 2, 3, true);
+          const cy = Math.floor(c.y);
+          for (let dy=0; dy<3; dy++)
+            for (let dx=0; dx<2; dx++)
+              drawCell(cx+dx, cy+dy, true, dy===1 ? 0.55 : 0.85);
         });
       },
       onLeft(){ if(this.playerLane>0){ this.playerLane--; sfx('move'); } },
@@ -1628,23 +1683,36 @@
   function makeSnake(){
     return {
       body: [], dir: {x:1,y:0}, nextDir: {x:1,y:0}, food: null,
-      score:0, level:1, moveAcc:0, moveInterval:180, gameOver:false, grow:0,
+      score:0, level:1, moveAcc:0, moveInterval:180, gameOver:false,
       init(){
         this.body = [{x:4,y:10},{x:3,y:10},{x:2,y:10}];
         this.dir={x:1,y:0}; this.nextDir={x:1,y:0};
         this.score=0; this.level=levelSelect;
         this.moveInterval = Math.max(90, 280 - (speedSelect-1)*15 - (levelSelect-1)*10);
-        this.moveAcc=0; this.gameOver=false; this.grow=0;
+        this.moveAcc=0; this.gameOver=false;
         this.placeFood();
         updateHUD(this.score, this.level, hiscore, t('food'), t('hi'));
-        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+        this.drawSide();
       },
+      drawSide(){ drawIcon(nctx, nextCanvas, MODES_BY_ID.D.icon); },
       placeFood(){
-        let tries=0;
-        do {
-          this.food = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)};
-          tries++;
-        } while (this.body.some(b=>b.x===this.food.x&&b.y===this.food.y) && tries<100);
+        const occupied = new Set(this.body.map(b => b.y * COLS + b.x));
+        const free = [];
+        for (let y=0; y<ROWS; y++) for (let x=0; x<COLS; x++) if (!occupied.has(y*COLS+x)) free.push({x, y});
+        if (!free.length){
+          // cleared the entire board: bonus and continue at next level
+          this.score += 500;
+          this.level++;
+          this.moveInterval = Math.max(80, this.moveInterval - 10);
+          sfx('level');
+          liveHi(this.score);
+          updateHUD(this.score, this.level, hiscore, t('food'), t('hi'));
+          this.body = [{x:4,y:10},{x:3,y:10},{x:2,y:10}];
+          this.dir={x:1,y:0}; this.nextDir={x:1,y:0};
+          this.placeFood();
+          return;
+        }
+        this.food = free[Math.floor(Math.random()*free.length)];
       },
       update(dt){
         if (this.gameOver) return;
@@ -1654,20 +1722,21 @@
           this.dir = {...this.nextDir};
           const head = this.body[0];
           const nh = {x: head.x+this.dir.x, y: head.y+this.dir.y};
-          // wall / self
-          if (nh.x<0||nh.x>=COLS||nh.y<0||nh.y>=ROWS || this.body.some(b=>b.x===nh.x&&b.y===nh.y)){
+          const willEat = !!(this.food && nh.x===this.food.x && nh.y===this.food.y);
+          // allow moving into the cell the tail is vacating on a non-eating step
+          const checkBody = willEat ? this.body : this.body.slice(0, -1);
+          if (nh.x<0||nh.x>=COLS||nh.y<0||nh.y>=ROWS || checkBody.some(b=>b.x===nh.x&&b.y===nh.y)){
             this.die(); return;
           }
           this.body.unshift(nh);
-          if (nh.x===this.food.x && nh.y===this.food.y){
+          if (willEat){
             this.score += 10;
             sfx('eat');
             liveHi(this.score);
             if (this.score % 50 === 0){ this.level++; this.moveInterval=Math.max(80,this.moveInterval-10); sfx('level'); }
             updateHUD(this.score, this.level, hiscore, t('food'), t('hi'));
             this.placeFood();
-          } else if (this.grow>0){ this.grow--; }
-          else this.body.pop();
+          } else this.body.pop();
         }
       },
       die(){
@@ -1676,17 +1745,22 @@
       draw(){
         clearBoard();
         this.body.forEach((b,i)=> drawCell(b.x, b.y, true, i===0?1:0.85));
-        if (this.food) drawCell(this.food.x, this.food.y, true);
+        if (this.food){
+          const blink = Math.floor(performance.now() / 220) % 2;
+          drawCell(this.food.x, this.food.y, true, blink ? 1 : 0.65);
+        }
       },
       setDir(dx,dy){
-        // prevent reverse
-        if (this.dir.x + dx === 0 && this.dir.y + dy === 0) return;
+        // prevent reverse and redundant inputs
+        if (this.dir.x + dx === 0 && this.dir.y + dy === 0) return false;
+        if (this.nextDir.x === dx && this.nextDir.y === dy) return false;
         this.nextDir = {x:dx, y:dy};
+        return true;
       },
-      onLeft(){ this.setDir(-1,0); sfx('move'); },
-      onRight(){ this.setDir(1,0); sfx('move'); },
-      onUp(){ this.setDir(0,-1); sfx('move'); },
-      onDown(){ this.setDir(0,1); sfx('move'); },
+      onLeft(){ if (this.setDir(-1,0)) sfx('move'); },
+      onRight(){ if (this.setDir(1,0)) sfx('move'); },
+      onUp(){ if (this.setDir(0,-1)) sfx('move'); },
+      onDown(){ if (this.setDir(0,1)) sfx('move'); },
       onA(){}, onB(){}
     };
   }
@@ -1704,12 +1778,7 @@
         updateHUD(this.score, this.level, hiscore, t('live'), t('hi'));
         this.drawSide();
       },
-      drawSide(){
-        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
-        nctx.fillStyle=pixelOn;
-        nctx.font='16px VT323';
-        nctx.fillText('♥'.repeat(this.lives), 8, 28);
-      },
+      drawSide(){ drawHearts(this.lives); },
       spawnWave(){
         const rows = Math.min(4, 1+Math.floor(this.level/2));
         for (let r=0;r<rows;r++){
@@ -1717,6 +1786,7 @@
             if (Math.random()>0.3) this.enemies.push({x:c+1, y:r+1, hp:1});
           }
         }
+        if (!this.enemies.length) this.enemies.push({x:4, y:1, hp:1});
       },
       update(dt){
         if (this.gameOver) return;
@@ -1729,7 +1799,7 @@
           this.spawnAcc=0;
           this.enemies.forEach(e=> e.y += 1);
           // check bottom
-          if (this.enemies.some(e=>e.y >= ROWS-2)){ this.hit(); }
+          if (this.enemies.some(e=>e.y >= ROWS-2)){ this.hit(); if (this.gameOver) return; }
         }
         // collisions bullet-enemy
         for (let i=this.bullets.length-1;i>=0;i--){
@@ -1756,9 +1826,10 @@
       hit(){
         this.lives--;
         this.drawSide();
-        sfx('die');
         this.enemies = this.enemies.filter(e=>e.y < ROWS-3);
-        if (this.lives<=0) endGame(this);
+        if (this.lives<=0){ endGame(this); return; }
+        sfx('die');
+        if (this.enemies.length===0) this.spawnWave();
       },
       shoot(){
         if (this.bullets.length < 3){
@@ -1798,10 +1869,11 @@
         updateHUD(this.score, this.level, hiscore, t('live'), t('hi'));
         this.drawSide();
       },
-      drawSide(){
-        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
-        nctx.fillStyle=pixelOn; nctx.font='16px VT323';
-        nctx.fillText('♥'.repeat(this.lives), 8, 28);
+      drawSide(){ drawHearts(this.lives); },
+      hurtPlayer(){
+        this.lives--; this.drawSide();
+        if (this.lives<=0){ endGame(this); return; }
+        sfx('die');
       },
       spawnEnemy(){
         if (this.enemies.length >= 3+Math.floor(this.level/2)) return;
@@ -1810,34 +1882,55 @@
         if (side===0){ x=Math.floor(Math.random()*COLS); y=0; }
         else if (side===1){ x=0; y=Math.floor(Math.random()*8); }
         else { x=COLS-1; y=Math.floor(Math.random()*8); }
+        if (this.enemies.some(e=>e.x===x && e.y===y) || (x===this.px && y===this.py)) return;
         this.enemies.push({x, y, dir:Math.floor(Math.random()*4), moveCD:0, shootCD:40+Math.random()*60});
       },
       update(dt){
         if (this.gameOver) return;
         this.acc += dt; this.eAcc += dt; this.spawnCD += dt;
-        // player bullets
+        // bullets
         this.bullets.forEach(b=>{
           b.x += this.dirs[b.dir].x * 0.22*(dt/16);
           b.y += this.dirs[b.dir].y * 0.22*(dt/16);
         });
         this.bullets = this.bullets.filter(b=>b.x>=-1&&b.x<COLS+1&&b.y>=-1&&b.y<ROWS+1);
+        // player bullets intercept enemy bullets
+        for (let i=this.bullets.length-1; i>=0; i--){
+          const a = this.bullets[i];
+          if (a.enemy) continue;
+          const j = this.bullets.findIndex(b => b.enemy && Math.abs(a.x-b.x)<0.8 && Math.abs(a.y-b.y)<0.8);
+          if (j >= 0){
+            this.bullets.splice(Math.max(i,j), 1);
+            this.bullets.splice(Math.min(i,j), 1);
+            if (j < i) i--;
+            sfx('hit');
+          }
+        }
         // enemies AI
         if (this.eAcc > Math.max(160, 380 - this.level*12 - speedSelect*15)){
           this.eAcc=0;
-          this.enemies.forEach(e=>{
+          for (let i=this.enemies.length-1; i>=0; i--){
+            const e = this.enemies[i];
             e.moveCD--; e.shootCD--;
             if (e.moveCD<=0){
               if (Math.random()<0.3) e.dir = Math.floor(Math.random()*4);
               const nx=e.x+this.dirs[e.dir].x, ny=e.y+this.dirs[e.dir].y;
-              if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS-3) { e.x=nx; e.y=ny; }
+              const blocked = this.enemies.some((o, idx)=> idx!==i && o.x===nx && o.y===ny);
+              if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS-3 && !blocked) { e.x=nx; e.y=ny; }
               else e.dir = Math.floor(Math.random()*4);
               e.moveCD=3+Math.floor(Math.random()*4);
+            }
+            if (e.x===this.px && e.y===this.py){
+              this.enemies.splice(i, 1);
+              this.hurtPlayer();
+              if (this.gameOver) return;
+              continue;
             }
             if (e.shootCD<=0){
               this.bullets.push({x:e.x, y:e.y, dir:e.dir, enemy:true});
               e.shootCD=50+Math.random()*80;
             }
-          });
+          }
         }
         // spawn more
         if (this.spawnCD > Math.max(1500, 4000-this.level*200)){ this.spawnCD=0; this.spawnEnemy(); }
@@ -1859,8 +1952,8 @@
           } else {
             if (Math.abs(b.x-this.px)<0.8 && Math.abs(b.y-this.py)<0.8){
               this.bullets.splice(i,1);
-              this.lives--; this.drawSide(); sfx('die');
-              if (this.lives<=0) endGame(this);
+              this.hurtPlayer();
+              if (this.gameOver) return;
             }
           }
         }
@@ -1873,21 +1966,40 @@
       },
       moveP(dx,dy){
         const nx=this.px+dx, ny=this.py+dy;
-        if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS){ this.px=nx; this.py=ny; sfx('move'); }
+        if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS-1){
+          this.px=nx; this.py=ny; sfx('move');
+          const ei = this.enemies.findIndex(e => e.x===this.px && e.y===this.py);
+          if (ei >= 0){ this.enemies.splice(ei, 1); this.hurtPlayer(); }
+        }
       },
       draw(){
         clearBoard();
-        // base protection line
+        // base boundary line
         for (let c=0;c<COLS;c++) drawCell(c, ROWS-1, true, 0.35);
-        // player
-        drawCell(this.px, this.py, true);
-        // simple dir indicator
+        // player tank (solid + barrel)
+        drawCell(this.px, this.py, true, 1);
         const d=this.dirs[this.pDir];
-        drawCell(this.px+d.x, this.py+d.y, true, 0.5);
-        // enemies
-        this.enemies.forEach(e=> drawCell(Math.floor(e.x), Math.floor(e.y), true));
-        // bullets
-        this.bullets.forEach(b=> drawCell(Math.floor(b.x), Math.floor(b.y), true));
+        drawCell(this.px+d.x, this.py+d.y, true, 0.55);
+        // enemy tanks (hollow outline + core dot so they stand out from bullets)
+        this.enemies.forEach(e=>{
+          const ex = Math.floor(e.x), ey = Math.floor(e.y);
+          drawGhostCell(ex, ey); drawGhostCell(ex, ey);
+          const pad = cellSize*0.32;
+          bctx.fillStyle = pixelOn;
+          bctx.fillRect(ex*cellSize+pad, ey*cellSize+pad, cellSize-pad*2, cellSize-pad*2);
+        });
+        // bullets (compact centered dots)
+        const blink = Math.floor(performance.now() / 120) % 2;
+        this.bullets.forEach(b=>{
+          const bx = Math.floor(b.x), by = Math.floor(b.y);
+          if (bx<0||bx>=COLS||by<0||by>=ROWS) return;
+          const pad = cellSize * (b.enemy ? 0.34 : 0.28);
+          bctx.save();
+          bctx.globalAlpha = b.enemy ? (blink ? 0.9 : 0.45) : 1;
+          bctx.fillStyle = pixelOn;
+          bctx.fillRect(bx*cellSize+pad, by*cellSize+pad, cellSize-pad*2, cellSize-pad*2);
+          bctx.restore();
+        });
       },
       onLeft(){ this.pDir=3; this.moveP(-1,0); },
       onRight(){ this.pDir=1; this.moveP(1,0); },
@@ -1904,24 +2016,22 @@
       bricks: [], score:0, level:1, lives:3, acc:0, gameOver:false, started:false,
       init(){
         this.paddleX=3; this.ballX=5; this.ballY=14;
-        this.ballDX=0.07 + speedSelect*0.012; this.ballDY=-0.07 - speedSelect*0.012;
+        const base = 0.07 + speedSelect*0.012;
+        this.ballDX = base; this.ballDY = -base;
         this.score=0; this.level=levelSelect; this.lives=3;
         this.acc=0; this.gameOver=false; this.started=false;
         this.buildBricks();
         updateHUD(this.score, this.level, hiscore, t('live'), t('hi'));
         this.drawSide();
       },
-      drawSide(){
-        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
-        nctx.fillStyle=pixelOn; nctx.font='16px VT323';
-        nctx.fillText('♥'.repeat(this.lives), 8, 28);
-      },
+      drawSide(){ drawHearts(this.lives); },
       buildBricks(){
         this.bricks=[];
         const rows = Math.min(6, 2+this.level);
         for (let r=0;r<rows;r++)
           for (let c=0;c<COLS;c++)
             if (Math.random()>0.15) this.bricks.push({x:c, y:r+1, hp:1});
+        if (!this.bricks.length) this.bricks.push({x:4, y:1, hp:1});
       },
       update(dt){
         if (this.gameOver || !this.started) return;
@@ -1929,31 +2039,41 @@
         this.ballX += this.ballDX * sp * (dt/16);
         this.ballY += this.ballDY * sp * (dt/16);
         // walls
-        if (this.ballX < 0){ this.ballX=0; this.ballDX*=-1; sfx('hit'); }
-        if (this.ballX > COLS-1){ this.ballX=COLS-1; this.ballDX*=-1; sfx('hit'); }
-        if (this.ballY < 0){ this.ballY=0; this.ballDY*=-1; sfx('hit'); }
-        // paddle
-        if (this.ballY >= ROWS-3 && this.ballY < ROWS-1 &&
+        if (this.ballX < 0){ this.ballX=0; this.ballDX=Math.abs(this.ballDX); sfx('hit'); }
+        if (this.ballX > COLS-1){ this.ballX=COLS-1; this.ballDX=-Math.abs(this.ballDX); sfx('hit'); }
+        if (this.ballY < 0){ this.ballY=0; this.ballDY=Math.abs(this.ballDY); sfx('hit'); }
+        // paddle (drawn at ROWS-2; only bounce when descending)
+        if (this.ballDY > 0 && this.ballY >= ROWS-2.6 && this.ballY < ROWS-1.2 &&
             this.ballX >= this.paddleX-0.5 && this.ballX <= this.paddleX+3.5){
-          this.ballDY = -Math.abs(this.ballDY);
-          const hitPos = (this.ballX - this.paddleX) / 3;
-          this.ballDX = (hitPos - 0.5) * 0.22;
+          const speedMag = Math.hypot(this.ballDX, this.ballDY) || (0.1 + speedSelect*0.015);
+          const hitPos = Math.max(0, Math.min(1, (this.ballX - this.paddleX) / 3));
+          let nx = (hitPos - 0.5) * 1.5;
+          if (Math.abs(nx) < 0.22) nx = (this.ballDX >= 0 ? 0.25 : -0.25); // prevent vertical lock
+          const ny = -Math.sqrt(Math.max(0.35, 1 - nx * nx * 0.5));
+          const len = Math.hypot(nx, ny);
+          this.ballDX = (nx / len) * speedMag;
+          this.ballDY = (ny / len) * speedMag;
+          this.ballY = ROWS - 2.6;
           sfx('hit');
         }
         // bottom
         if (this.ballY > ROWS){
-          this.lives--; this.drawSide(); sfx('die');
+          this.lives--; this.drawSide();
           this.started=false;
           this.ballX = this.paddleX+1; this.ballY=14;
-          this.ballDY=-Math.abs(this.ballDY);
-          if (this.lives<=0) endGame(this);
+          const base = 0.07 + speedSelect*0.012;
+          this.ballDX = (Math.random() < 0.5 ? -1 : 1) * base;
+          this.ballDY = -base;
+          if (this.lives<=0){ endGame(this); return; }
+          sfx('die');
         }
         // bricks
         for (let i=this.bricks.length-1;i>=0;i--){
           const br=this.bricks[i];
-          if (Math.abs(this.ballX-br.x)<0.8 && Math.abs(this.ballY-br.y)<0.8){
+          const dx = Math.abs(this.ballX-br.x), dy = Math.abs(this.ballY-br.y);
+          if (dx<0.8 && dy<0.8){
             this.bricks.splice(i,1);
-            this.ballDY *= -1;
+            if (dx > dy) this.ballDX *= -1; else this.ballDY *= -1;
             this.score += 15;
             sfx('hit');
             liveHi(this.score);
@@ -1989,39 +2109,37 @@
   // ========== FROG (H) ==========
   function makeFrog(){
     return {
-      fx:4, fy:18, score:0, level:1, lives:3, acc:0, gameOver:false,
+      fx:4, fy:18, bestY:18, score:0, level:1, lives:3, acc:0, gameOver:false,
       cars: [], logs: [], home: [false,false,false,false,false],
       init(){
-        this.fx=4; this.fy=18; this.score=0; this.level=levelSelect;
+        this.fx=4; this.fy=18; this.bestY=18; this.score=0; this.level=levelSelect;
         this.lives=3; this.acc=0; this.gameOver=false;
         this.home=[false,false,false,false,false];
         this.buildTraffic();
         updateHUD(this.score, this.level, hiscore, t('live'), t('hi'));
         this.drawSide();
       },
-      drawSide(){
-        nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
-        nctx.fillStyle=pixelOn; nctx.font='16px VT323';
-        nctx.fillText('♥'.repeat(this.lives), 8, 28);
-      },
+      drawSide(){ drawHearts(this.lives); },
       buildTraffic(){
         this.cars=[]; this.logs=[];
-        // cars rows 12-15
+        // cars rows 12-15 (evenly spaced with random lane phase to avoid clumping)
         for (let r=0;r<4;r++){
           const y = 15-r;
           const dir = r%2===0 ? 1 : -1;
           const sp = (0.035 + this.level*0.006 + speedSelect*0.005) * dir;
+          const phase = Math.random()*COLS;
           for (let i=0;i<3;i++){
-            this.cars.push({x: Math.random()*COLS, y, w:2, sp, dir});
+            this.cars.push({x: (phase + i * (COLS / 3)) % COLS, y, w:2, sp, dir});
           }
         }
-        // logs rows 3-7
+        // logs rows 3-7 (evenly spaced so river is always crossable)
         for (let r=0;r<5;r++){
           const y = 7-r;
           const dir = r%2===0 ? -1 : 1;
           const sp = (0.03 + this.level*0.005 + speedSelect*0.004) * dir;
+          const phase = Math.random()*COLS;
           for (let i=0;i<2;i++){
-            this.logs.push({x: Math.random()*COLS, y, w:3, sp, dir});
+            this.logs.push({x: (phase + i * (COLS / 2)) % COLS, y, w:3, sp, dir});
           }
         }
       },
@@ -2055,8 +2173,8 @@
             if (this.fy===c.y && this.fx >= c.x-0.3 && this.fx <= c.x+c.w-0.3){ this.die(); break; }
           }
         }
-        // home
-        if (this.fy <= 1){
+        // home (row 0, matching the visual home slots)
+        if (this.fy === 0){
           const slot = Math.floor(this.fx / 2);
           if (slot>=0 && slot<5 && !this.home[slot] && this.fx%2 < 1.5){
             this.home[slot]=true;
@@ -2064,7 +2182,7 @@
             sfx('score');
             liveHi(this.score);
             updateHUD(this.score,this.level,hiscore,t('live'),t('hi'));
-            this.fx=4; this.fy=18;
+            this.fx=4; this.fy=18; this.bestY=18;
             if (this.home.every(h=>h)){
               this.level++; sfx('level');
               this.home=[false,false,false,false,false];
@@ -2075,14 +2193,23 @@
         }
       },
       die(){
-        this.lives--; this.drawSide(); sfx('die');
-        this.fx=4; this.fy=18;
-        if (this.lives<=0) endGame(this);
+        this.lives--; this.drawSide();
+        this.fx=4; this.fy=18; this.bestY=18;
+        if (this.lives<=0){ endGame(this); return; }
+        sfx('die');
       },
       move(dx,dy){
-        const nx=this.fx+dx, ny=this.fy+dy;
-        if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS){ this.fx=nx; this.fy=ny; sfx('move');
-          if (dy<0) { this.score+=5; updateHUD(this.score,this.level,hiscore,t('live'),t('hi')); }
+        let nx = this.fx + dx, ny = this.fy + dy;
+        // snap to integer grid when leaving the river so fractional log drift doesn't persist
+        if (ny < 3 || ny > 7) nx = Math.max(0, Math.min(COLS - 1, Math.round(nx)));
+        if (nx>=0&&nx<COLS&&ny>=0&&ny<ROWS){
+          this.fx=nx; this.fy=ny; sfx('move');
+          if (this.fy < this.bestY){
+            this.bestY = this.fy;
+            this.score += 5;
+            liveHi(this.score);
+            updateHUD(this.score,this.level,hiscore,t('live'),t('hi'));
+          }
         }
       },
       draw(){
@@ -2176,7 +2303,7 @@
   }
 
   // ========== RUNNER (J) ==========
-  // One-button runner: jump over blocks, duck (down) under birds.
+  // Jump over blocks (A / Up), duck under birds (B / Down).
   function makeRunner(){
     const GROUND = ROWS - 2;   // row the runner's feet stand on
     const G_ACC = 0.00009;     // gravity, cells/ms²
@@ -2201,7 +2328,8 @@
           this.h += this.vy * dt; this.vy -= G_ACC * dt;
           if (this.h <= 0){ this.h = 0; this.vy = 0; }
         }
-        if (this.duck > 0) this.duck -= dt;
+        if (isDuckHeld() && this.h === 0) this.duck = Math.max(this.duck, 80);
+        else if (this.duck > 0) this.duck -= dt;
         // world
         const dx = this.speed * dt;
         this.scroll += dx;
@@ -2212,14 +2340,16 @@
           const bird = this.level >= 2 && Math.random() < 0.3;
           if (bird) this.obs.push({x: COLS, w: 2, y: 1.2, hgt: 1, bird: true});
           else { const tall = Math.random() < 0.4; this.obs.push({x: COLS, w: Math.random() < 0.3 ? 2 : 1, y: 0, hgt: tall ? 2 : 1}); }
-          this.spawnIn = Math.max(450, 1500 - this.level*80) + Math.random()*900;
+          const minGap = Math.max(520, 4.4 / this.speed);
+          this.spawnIn = Math.max(minGap, 1500 - this.level*80) + Math.random()*850;
         }
-        // score / level
+        // score / level (cannot skip multiples at high speed)
         this.dist += dx;
         const s = Math.floor(this.dist * 2);
         if (s !== this.score){
           this.score = s;
-          if (this.score > 0 && this.score % 150 === 0){ this.level++; this.speed += 0.0008; sfx('level'); }
+          const targetLev = Math.floor(this.score / 150) + levelSelect;
+          if (targetLev > this.level){ this.level = targetLev; this.speed += 0.0008; sfx('level'); }
           updateHUD(this.score, this.level, liveHi(this.score), t('mode'), t('hi'));
         }
         // collision: runner occupies column 1, heights [h, h+size)
@@ -2247,7 +2377,8 @@
         });
       },
       onLeft(){}, onRight(){},
-      onUp(){ this.jump(); }, onA(){ this.jump(); }, onB(){ this.jump(); },
+      onUp(){ this.jump(); }, onA(){ this.jump(); },
+      onB(){ this.onDown(); },
       onDown(){ if (this.h === 0) this.duck = 450; else this.vy = Math.min(this.vy, -JUMP_V); }
     };
   }
@@ -2263,7 +2394,11 @@
         this.px = 4; this.acc = 0; this.shots = [];
         for (let i = 0; i < 3 + Math.min(5, this.level); i++) this.pushRow();
         updateHUD(0, this.level, hiscore, t('mode'), t('hi'));
+        this.drawSide();
+      },
+      drawSide(){
         drawIcon(nctx, nextCanvas, MODES_BY_ID.K.icon);
+        setExtra(t('linesLbl'), this.lines);
       },
       newRow(){
         const row = Array(COLS).fill(1);
@@ -2307,6 +2442,7 @@
           this.score += 100 * this.level;
           sfx('line');
           if (this.lines % 8 === 0){ this.level++; sfx('level'); }
+          this.drawSide();
         }
         if (this.dangerHit()) { endGame(this); return; }
         updateHUD(this.score, this.level, liveHi(this.score), t('mode'), t('hi'));
@@ -2332,9 +2468,9 @@
     const PW = 3;
     return {
       px: 3, cx: 3, bx: 4.5, by: 10, vx: 0, vy: 0, serveIn: 0, cpuAcc: 0,
-      score: 0, level: 1, lives: 3, rally: 0, gameOver: false,
+      score: 0, level: 1, lives: 3, rally: 0, goals: 0, gameOver: false,
       init(){
-        this.level = levelSelect; this.score = 0; this.lives = 3; this.gameOver = false;
+        this.level = levelSelect; this.score = 0; this.lives = 3; this.goals = 0; this.gameOver = false;
         this.px = 3; this.cx = 3;
         this.serve(1);
         updateHUD(0, this.level, hiscore, t('live'), t('hi'));
@@ -2361,23 +2497,26 @@
           else if (this.cx > target + 0.5 && this.cx > 0) this.cx--;
         }
         if (this.serveIn > 0){ this.serveIn -= dt; return; }
+        const prevBy = this.by;
         this.bx += this.vx * dt; this.by += this.vy * dt;
         if (this.bx < 0){ this.bx = 0; this.vx = Math.abs(this.vx); sfx('move'); }
         if (this.bx > COLS - 1){ this.bx = COLS - 1; this.vx = -Math.abs(this.vx); sfx('move'); }
-        // player paddle (row ROWS-1), CPU paddle (row 0)
-        if (this.vy > 0 && this.by >= ROWS - 2 && this.by < ROWS - 1 + 0.5){
+        // player paddle (row ROWS-1), CPU paddle (row 0) — swept check prevents tunneling
+        if (this.vy > 0 && ((prevBy <= ROWS - 1.5 && this.by >= ROWS - 2) || (this.by >= ROWS - 2 && this.by < ROWS - 0.5))){
           if (this.bx + 0.5 >= this.px && this.bx + 0.5 <= this.px + PW){ this.bounce(this.px, -1); this.score += 5; this.hud(); }
         }
-        if (this.vy < 0 && this.by <= 1 && this.by > -0.5){
+        if (this.vy < 0 && ((prevBy >= 0.5 && this.by <= 1) || (this.by <= 1 && this.by > -0.5))){
           if (this.bx + 0.5 >= this.cx && this.bx + 0.5 <= this.cx + PW) this.bounce(this.cx, 1);
         }
         if (this.by > ROWS){
-          this.lives--; this.drawSide(); sfx('die');
+          this.lives--; this.drawSide();
           if (this.lives <= 0){ endGame(this); return; }
+          sfx('die');
           this.serve(1);
         } else if (this.by < -1){
-          this.score += 100 * this.level; sfx('score');
-          if (this.score >= this.level * 600){ this.level++; sfx('level'); }
+          this.goals++;
+          this.score += 100 * this.level;
+          if (this.goals % 3 === 0){ this.level++; sfx('level'); } else sfx('score');
           this.hud();
           this.serve(-1);
         }
@@ -2408,7 +2547,7 @@
   // ========== INVADERS (M) ==========
   function makeInvaders(){
     return {
-      px: 4, shots: [], bombs: [], aliens: [], gx: 0, gy: 0, gdir: 1, acc: 0, bombAcc: 0,
+      px: 4, shots: [], bombs: [], aliens: [], waveTotal: 12, gx: 0, gy: 0, gdir: 1, acc: 0, bombAcc: 0,
       score: 0, level: 1, lives: 3, gameOver: false, shields: [],
       init(){
         this.level = levelSelect; this.score = 0; this.lives = 3; this.gameOver = false;
@@ -2422,13 +2561,15 @@
         this.aliens = [];
         const rows = Math.min(4, 2 + Math.floor(this.level / 3));
         for (let r = 0; r < rows; r++) for (let c = 0; c < 6; c++) this.aliens.push({x: c, y: r});
+        this.waveTotal = this.aliens.length;
         this.gx = 0; this.gy = 1 + Math.min(4, Math.floor((this.level - 1) / 2)); this.gdir = 1; this.acc = 0;
         this.shields = [];
         [1, 4, 7].forEach(x => { this.shields.push({x, y: ROWS - 5}); this.shields.push({x: x + 1, y: ROWS - 5}); });
       },
       interval(){
         const total = this.aliens.length || 1;
-        return Math.max(90, 750 - this.level*45 - speedSelect*35 - (24 - total) * 18);
+        const killedFrac = this.waveTotal > 0 ? (this.waveTotal - total) / this.waveTotal : 0;
+        return Math.max(90, 750 - this.level*45 - speedSelect*35 - Math.round(killedFrac * 340));
       },
       update(dt){
         if (this.gameOver) return;
@@ -2469,16 +2610,17 @@
           const si = this.shields.findIndex(b => b.x === s.x && Math.abs(b.y - s.y) < 0.7);
           if (si >= 0){ this.shields.splice(si, 1); return false; }
           const bi = this.bombs.findIndex(b => b.x === s.x && Math.abs(b.y - s.y) < 0.9);
-          if (bi >= 0){ this.bombs.splice(bi, 1); this.score += 5; return false; }
+          if (bi >= 0){ this.bombs.splice(bi, 1); this.score += 5; updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi')); return false; }
           return true;
         });
         this.bombs = this.bombs.filter(b => {
           if (b.y >= ROWS) return false;
           const si = this.shields.findIndex(s => s.x === b.x && Math.abs(s.y - b.y) < 0.7);
           if (si >= 0){ this.shields.splice(si, 1); return false; }
-          if (b.x === this.px && b.y >= ROWS - 2){
-            this.lives--; this.drawSide(); sfx('die');
-            if (this.lives <= 0) endGame(this);
+          const hitShip = (b.x === this.px && b.y >= ROWS - 2) || (Math.abs(b.x - this.px) <= 1 && b.y >= ROWS - 1);
+          if (hitShip){
+            this.lives--; this.drawSide();
+            if (this.lives <= 0) endGame(this); else sfx('die');
             return false;
           }
           return true;
@@ -2525,11 +2667,12 @@
     }
     return {
       grid: null, x: 0, y: 0, gems: [1,2,3], nextGems: [1,2,3], acc: 0, interval: 800,
-      score: 0, level: 1, cleared: 0, gameOver: false, flash: null, flashT: 0, chainMsg: '',
+      score: 0, level: 1, cleared: 0, gameOver: false, flash: null, flashT: 0, chainMsg: '', chainT: 0,
       rnd(){ return 1 + Math.floor(Math.random() * Math.min(4, 3 + (this.level >= 3 ? 1 : 0))); },
       init(){
         this.grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
         this.level = levelSelect; this.score = 0; this.cleared = 0; this.gameOver = false;
+        this.chainMsg = ''; this.chainT = 0;
         this.interval = Math.max(140, 850 - (speedSelect-1)*60 - (this.level-1)*40);
         this.nextGems = [this.rnd(), this.rnd(), this.rnd()];
         this.spawn();
@@ -2557,6 +2700,7 @@
       fits(x, y){ return this.free(x, y) && this.free(x, y+1) && this.free(x, y+2); },
       update(dt){
         if (this.gameOver) return;
+        if (this.chainT > 0){ this.chainT -= dt; if (this.chainT <= 0){ this.chainT = 0; this.chainMsg = ''; } }
         if (this.flashT > 0){
           this.flashT -= dt;
           if (this.flashT <= 0) this.collapse();
@@ -2586,11 +2730,13 @@
         }
         if (!hit.size){ this.spawn(); return; }
         this.chain++;
+        if (this.chain >= 2){ this.chainMsg = 'CHAIN x' + this.chain; this.chainT = 900; }
         this.flash = hit; this.flashT = 260;
         this.score += hit.size * 10 * this.level * this.chain;
         this.cleared += hit.size;
         sfx(this.chain > 1 ? 'level' : 'line');
-        if (this.cleared >= this.level * 30){ this.level++; this.interval = Math.max(120, this.interval - 60); sfx('level'); }
+        const newLev = Math.floor(this.cleared / 30) + levelSelect;
+        if (newLev > this.level){ this.level = newLev; this.interval = Math.max(120, this.interval - 60); sfx('level'); }
         updateHUD(this.score, this.level, liveHi(this.score), t('next'), t('hi'));
       },
       collapse(){
@@ -2612,16 +2758,46 @@
           if (g && !(this.flash && this.flash.has(y*COLS + x) && blink)) drawGem(x, y, g);
         }
         if (!this.flash && !this.gameOver){
+          if (ghostOn){
+            let gy = this.y;
+            while (this.fits(this.x, gy + 1)) gy++;
+            if (gy > this.y) for (let i = 0; i < 3; i++) drawGhostCell(this.x, gy + i);
+          }
           for (let i = 0; i < 3; i++) drawGem(this.x, this.y + i, this.gems[i]);
+        }
+        if (this.chainMsg && this.chainT > 0){
+          const alpha = Math.min(1, this.chainT / 200);
+          bctx.save();
+          const fontSize = Math.max(12, Math.floor(cellSize * 1.2));
+          bctx.font = `bold ${fontSize}px VT323, monospace`;
+          bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+          const tw = bctx.measureText(this.chainMsg).width;
+          const bx = boardCanvas.width / 2, by = boardCanvas.height / 2;
+          bctx.fillStyle = pixelOff; bctx.globalAlpha = alpha * 0.85;
+          bctx.fillRect(bx - tw/2 - 6, by - fontSize/2 - 4, tw + 12, fontSize + 8);
+          bctx.fillStyle = pixelOn; bctx.globalAlpha = alpha;
+          bctx.fillText(this.chainMsg, bx, by);
+          bctx.restore();
         }
       },
       busy(){ return this.gameOver || this.flash; },
       onLeft(){ if (!this.busy() && this.fits(this.x - 1, this.y)){ this.x--; sfx('move'); } },
       onRight(){ if (!this.busy() && this.fits(this.x + 1, this.y)){ this.x++; sfx('move'); } },
-      onDown(){ if (this.busy()) return; if (!this.step()) this.lock(); else this.score += 1; },
+      onDown(){
+        if (this.busy()) return;
+        if (!this.step()) this.lock();
+        else { this.score += 1; updateHUD(this.score, this.level, liveHi(this.score), t('next'), t('hi')); }
+      },
       onUp(){ this.onA(); },
       onA(){ if (this.busy()) return; this.gems.unshift(this.gems.pop()); sfx('rotate'); },
-      onB(){ if (this.busy()) return; while (this.step()) this.score += 2; this.lock(); sfx('drop'); }
+      onB(){
+        if (this.busy()) return;
+        let d = 0;
+        while (this.step()){ this.score += 2; d++; }
+        if (d) updateHUD(this.score, this.level, liveHi(this.score), t('next'), t('hi'));
+        this.lock();
+        if (!this.flash && !this.gameOver) sfx('drop');
+      }
     };
   }
 
@@ -2671,7 +2847,7 @@
         this.ghosts = [];
         MAZE.forEach((row, y) => [...row].forEach((ch, x) => {
           if (ch === 'P') this.p = {x, y, dir: 3, want: 3};
-          if (ch === 'G') this.ghosts.push({x, y, home: {x, y}, dir: 0, eaten: 0});
+          if (ch === 'G') this.ghosts.push({x, y, home: {x, y}, dir: this.ghosts.length ? 1 : 3, eaten: 0, role: this.ghosts.length});
         }));
         this.power = 0; this.startDelay = 900;
       },
@@ -2696,7 +2872,7 @@
         if (v){
           this.dots[p.y][p.x] = 0; this.left--;
           this.score += v === 2 ? 50 : 10;
-          if (v === 2){ this.power = 6000 - this.level*300; this.combo = 0; sfx('level'); } else sfx('eat');
+          if (v === 2){ this.power = Math.max(1800, 6000 - (this.level - 1)*300); this.combo = 0; sfx('level'); } else sfx('eat');
           updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi'));
           if (this.left === 0){ award('mazeClear'); this.level++; sfx('level'); this.board(); }
         }
@@ -2711,11 +2887,19 @@
           if (!wall(g.x + d.x, g.y + d.y)) opts.push(i);
         });
         if (!opts.length) opts.push((g.dir + 2) % 4);
-        const dist = i => Math.abs(g.x + DIRS[i].x - p.x) + Math.abs(g.y + DIRS[i].y - p.y);
+        // Ghost 0 chases directly; Ghost 1 ambushes 3 tiles ahead of the player
+        const pd = DIRS[p.dir];
+        const tx = g.role === 1 ? p.x + pd.x * 3 : p.x;
+        const ty = g.role === 1 ? p.y + pd.y * 3 : p.y;
+        const dist = i => Math.abs(g.x + DIRS[i].x - tx) + Math.abs(g.y + DIRS[i].y - ty);
+        const fleeDist = i => Math.abs(g.x + DIRS[i].x - p.x) + Math.abs(g.y + DIRS[i].y - p.y);
+        // avoid stacking onto another ghost when an alternative path exists
+        const unstacked = opts.filter(i => !this.ghosts.some(o => o !== g && o.eaten === 0 && o.x === g.x + DIRS[i].x && o.y === g.y + DIRS[i].y));
+        const pool = unstacked.length ? unstacked : opts;
         let pick;
-        if (this.power > 0) pick = opts.reduce((a, b) => dist(a) >= dist(b) ? a : b);        // flee
-        else if (Math.random() < 0.2) pick = opts[Math.floor(Math.random() * opts.length)];   // a little randomness
-        else pick = opts.reduce((a, b) => dist(a) <= dist(b) ? a : b);                        // chase
+        if (this.power > 0) pick = pool.reduce((a, b) => fleeDist(a) >= fleeDist(b) ? a : b);  // flee
+        else if (Math.random() < 0.2) pick = pool[Math.floor(Math.random() * pool.length)];    // a little randomness
+        else pick = pool.reduce((a, b) => dist(a) <= dist(b) ? a : b);                         // chase / ambush
         g.dir = pick; g.x += DIRS[pick].x; g.y += DIRS[pick].y;
       },
       collide(){
@@ -2726,8 +2910,9 @@
             g.x = g.home.x; g.y = g.home.y; g.eaten = 6;
             updateHUD(this.score, this.level, liveHi(this.score), t('live'), t('hi'));
           } else {
-            this.lives--; this.drawSide(); sfx('die');
+            this.lives--; this.drawSide();
             if (this.lives <= 0){ endGame(this); return; }
+            sfx('die');
             this.place();
             return;
           }
@@ -2768,30 +2953,38 @@
       CAR.forEach((row, dy) => [...row].forEach((ch, dx) => { if (ch === '#') drawCell(x + dx, Math.floor(y) + dy, true, alpha); }));
     }
     return {
-      lane: 0, cars: [], fuelCans: [], fuel: 100, turbo: 0, scroll: 0, spawnAcc: 0,
+      lane: 0, cars: [], fuelCans: [], fuel: 100, lastFuel: -1, lastTurbo: false, sinceFuel: 0,
+      turbo: 0, scroll: 0, spawnAcc: 0,
       score: 0, level: 1, gameOver: false, passed: 0,
       init(){
         this.level = levelSelect; this.score = 0; this.gameOver = false;
-        this.lane = 0; this.cars = []; this.fuelCans = []; this.fuel = 100; this.turbo = 0; this.passed = 0;
+        this.lane = 0; this.cars = []; this.fuelCans = []; this.fuel = 100; this.lastFuel = -1; this.lastTurbo = false;
+        this.sinceFuel = 0; this.turbo = 0; this.passed = 0;
         this.spawnAcc = 0;
         updateHUD(0, this.level, hiscore, t('mode'), t('hi'));
         this.drawSide();
       },
       drawSide(){ drawIcon(nctx, nextCanvas, MODES_BY_ID.P.icon); this.fuelPanel(); },
-      fuelPanel(){ setExtra(t('fuel'), Math.max(0, Math.ceil(this.fuel)) + '%'); },
+      fuelPanel(){
+        const pct = Math.max(0, Math.ceil(this.fuel)) + '%';
+        setExtra(this.turbo > 0 ? t('b_turbo') : t('fuel'), pct);
+      },
       speed(){ return (0.010 + speedSelect*0.0009 + this.level*0.0008) * (this.turbo > 0 ? 1.6 : 1); },
       update(dt){
         if (this.gameOver) return;
         const v = this.speed() * dt;
         this.scroll += v;
-        if (this.turbo > 0) this.turbo -= dt;
+        if (this.turbo > 0) this.turbo = Math.max(0, this.turbo - dt);
         // fuel
         this.fuel -= dt * (this.turbo > 0 ? 0.006 : 0.0032);
-        if (Math.floor(this.fuel) !== this.lastFuel){ this.lastFuel = Math.floor(this.fuel); this.fuelPanel(); }
+        const turboOn = this.turbo > 0;
+        if (Math.floor(this.fuel) !== this.lastFuel || turboOn !== this.lastTurbo){
+          this.lastFuel = Math.floor(this.fuel); this.lastTurbo = turboOn; this.fuelPanel();
+        }
         if (this.fuel <= 0){ endGame(this); return; }
-        // traffic
+        // traffic & fuel cans move at matching relative speed so cans never overtake and overlap cars
         this.cars.forEach(c => c.y += v * 0.55);
-        this.fuelCans.forEach(f => f.y += v);
+        this.fuelCans.forEach(f => f.y += v * 0.55);
         this.cars = this.cars.filter(c => {
           if (c.y > ROWS){ this.passed++; this.score += this.turbo > 0 ? 20 : 10; this.levelCheck(); this.hud(); return false; }
           return true;
@@ -2804,7 +2997,14 @@
           const lane = Math.floor(Math.random()*2);
           // keep a clear gap between cars so there is always a way through
           if (!this.cars.some(c => c.y < 5)) this.cars.push({lane, y: -4});
-          if (Math.random() < 0.18) this.fuelCans.push({lane: 1 - lane, y: -1});
+          this.sinceFuel++;
+          const needFuel = this.sinceFuel >= 4 || (this.fuel < 40 && !this.fuelCans.length);
+          const fuelLane = 1 - lane;
+          const laneClear = !this.cars.some(c => c.lane === fuelLane && c.y < 3);
+          if (laneClear && (needFuel || Math.random() < 0.22)){
+            this.fuelCans.push({lane: fuelLane, y: -1});
+            this.sinceFuel = 0;
+          }
         }
         // collisions (player car rows ROWS-4..ROWS-1)
         const py = ROWS - 4;
@@ -2819,7 +3019,8 @@
       draw(){
         clearBoard();
         const off = Math.floor(this.scroll) % 4;
-        for (let y = 0; y < ROWS; y++) if ((y + 4 - off) % 4 !== 0){ drawCell(0, y, true, 0.6); drawCell(COLS-1, y, true, 0.6); }
+        const edgeAlpha = this.turbo > 0 ? 0.95 : 0.6;
+        for (let y = 0; y < ROWS; y++) if ((y + 4 - off) % 4 !== 0){ drawCell(0, y, true, edgeAlpha); drawCell(COLS-1, y, true, edgeAlpha); }
         this.cars.forEach(c => drawCar(LANES[c.lane], c.y));
         const blink = Math.floor(performance.now() / 150) % 2;
         this.fuelCans.forEach(f => drawCell(LANES[f.lane] + 1, Math.floor(f.y), true, blink ? 1 : 0.4));
@@ -2844,9 +3045,7 @@
       if (state==='play') G.draw();
       stats.timeMs += dt;
       if (stats.timeMs >= 30*60000) award('marathon');
-    } else if (state==='menu') drawMenu();
-    else if (state==='level') drawLevelSelect();
-    else if (state==='settings') drawSettings();
+    }
     // keep button layout + captions in sync with the current screen
     applyBigLayout();
     updateButtonLabels();
@@ -2960,11 +3159,14 @@
     if (playingDaily){
       // fixed level/speed and a seeded random sequence shared by everyone today
       const d = dailyInfo();
+      activeDaily = d;
       currentMode = d.mode;
+      if (savedLevelSelect === null){ savedLevelSelect = levelSelect; savedSpeedSelect = speedSelect; }
       levelSelect = d.level; speedSelect = d.speed;
       Math.random = seededRandom(d.key + d.mode.id);
       const top = loadTop(d.key); hiscore = top.length ? top[0].s : 0;
     } else {
+      activeDaily = null;
       Math.random = nativeRandom;
       currentMode = it.mode;
       hiscore = loadHi(currentMode.id);
@@ -2984,12 +3186,22 @@
     lastTs = performance.now();
   }
   let hudSnapshot = null;
+  function sideLabel1KeyForMode(m){
+    if (!m) return 'mode';
+    if (m.id === 'A' || m.id === 'B' || m.id === 'N') return 'next';
+    if (m.id === 'C') return 'cars';
+    if (m.id === 'D') return 'food';
+    if (['E','F','G','H','L','M','O'].includes(m.id)) return 'live';
+    return 'mode';
+  }
   function openSettings(){
-    if (!['menu', 'level', 'pause'].includes(state)) return; // pause first
+    if (state === 'settings' || state === 'initials') return;
     prevStateBeforeSettings = state;
-    // remember the in-game side panel so it can be restored after settings
-    hudSnapshot = state === 'pause' ? [scoreEl, levelEl, hiscoreEl, sideLabel1, sideLabel2, extraLabel, extraVal]
-      .map(el => el.textContent).concat([extraPanel.hidden]) : null;
+    // remember the in-game side panel so it can be restored after settings (with fresh i18n labels)
+    hudSnapshot = (state === 'pause' || state === 'over') ? {
+      score: scoreEl.textContent, level: levelEl.textContent, hi: hiscoreEl.textContent,
+      extraHidden: extraPanel.hidden, extraVal: extraVal.textContent,
+    } : null;
     state = 'settings';
     settingsIndex = 0;
     hideOverlay();
@@ -3000,23 +3212,30 @@
   function closeSettings(){
     const back = prevStateBeforeSettings;
     sfx('select');
-    if (back === 'pause' && G){
-      state = 'pause';
+    if ((back === 'pause' || back === 'over') && G){
+      state = back;
       if (hudSnapshot){
-        [scoreEl, levelEl, hiscoreEl, sideLabel1, sideLabel2, extraLabel, extraVal]
-          .forEach((el, i) => { el.textContent = hudSnapshot[i]; });
-        extraPanel.hidden = hudSnapshot[7];
+        updateHUD(hudSnapshot.score, hudSnapshot.level, hudSnapshot.hi, t(sideLabel1KeyForMode(currentMode)), t('hi'));
+        extraPanel.hidden = hudSnapshot.extraHidden;
+        extraVal.textContent = hudSnapshot.extraVal;
       }
       nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
       if (G.drawSide) G.drawSide();
       if (G.drawNext) G.drawNext();
-    } else state = back === 'level' ? 'level' : 'menu';
+    } else if (['menu','level','stats','awards'].includes(back)){
+      state = back;
+    } else state = 'menu';
     applyBigLayout();
     redrawScreen();
   }
   function doReset(){
     if (G && currentMode && !G.gameOver && !playingDaily) saveHi(currentMode.id, G.score);
-    if (playingDaily){ Math.random = nativeRandom; playingDaily = false; levelSelect = 1; speedSelect = 1; }
+    if (playingDaily){
+      Math.random = nativeRandom;
+      playingDaily = false;
+      activeDaily = null;
+      if (savedLevelSelect !== null){ levelSelect = savedLevelSelect; speedSelect = savedSpeedSelect; savedLevelSelect = null; savedSpeedSelect = null; }
+    }
     saveStats();
     state='menu';
     G=null;
@@ -3032,19 +3251,57 @@
   bindHoldable(document.getElementById('btnDown'), ()=>handleDir('down'));
   bindTap(document.getElementById('btnA'), handleA);
   bindTap(document.getElementById('btnB'), handleB);
+  // track hold-to-duck for Runner on Down and B buttons
+  [document.getElementById('btnDown'), document.getElementById('btnB')].forEach(el => {
+    el.addEventListener('pointerdown', () => { btnDuckHeld = true; });
+    ['pointerup','pointercancel','pointerleave'].forEach(ev => el.addEventListener(ev, () => { btnDuckHeld = false; }));
+  });
   bindTap(document.getElementById('btnStart'), togglePause);
   bindTap(document.getElementById('btnReset'), doReset);
   bindTap(document.getElementById('btnSettings'), ()=>{
     if (state === 'play') togglePause();
     if (state === 'pause') { pauseIndex = PAUSE_OPTS.indexOf('settings'); openSettings(); }
+    else if (state === 'settings') closeSettings();
     else openSettings();
   });
   bindTap(document.getElementById('btnSound'), ()=>{ setSound(!soundOn); sfx('select'); });
 
+  // Tap HOLD panel directly in brick games (handy especially in BIG 3 mode)
+  extraPanel.addEventListener('pointerdown', e => {
+    if (state === 'play' && G && G.hold){ e.preventDefault(); e.stopPropagation(); G.hold(); G.draw(); }
+  });
+  // Direct click on menu or settings rows on desktop/mouse
+  boardCanvas.addEventListener('click', e => {
+    if (state !== 'menu' && state !== 'settings') return;
+    const rect = boardCanvas.getBoundingClientRect();
+    const row = ((e.clientY - rect.top) / rect.height) * ROWS;
+    if (state === 'menu'){
+      const idx = Math.floor((row - 0.5) / 0.95) - 2;
+      if (idx >= 0 && idx < MENU_ROWS && menuTop + idx < MENU_ITEMS.length){
+        const target = menuTop + idx;
+        if (target === menuIndex) openMenuItem();
+        else { menuIndex = target; sfx('select'); drawMenu(); }
+      }
+    } else if (state === 'settings'){
+      const idx = Math.floor((row - 0.6) / 0.95) - 2;
+      if (idx >= 0 && idx < SETTINGS_OPTS.length){
+        settingsIndex = idx;
+        const opt = SETTINGS_OPTS[settingsIndex];
+        if (opt.cycle) opt.set(1); else opt.set(!opt.get());
+        sfx('select');
+        drawSettings();
+      }
+    }
+  });
+
+  const DUCK_KEYS = ['ArrowDown','s','S','x','X','k','K'];
   document.addEventListener('keydown', (e)=>{
     // a focused on-screen button handles Enter/Space itself (as a click)
     if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
+    if (DUCK_KEYS.includes(e.key)) keyDuckHeld = true;
     let handled = true;
+    const isDir = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','a','A','d','D','w','W','s','S'].includes(e.key);
+    if (e.repeat && (!isDir || !holdRepeat)) { e.preventDefault(); return; }
     switch(e.key){
       case 'ArrowLeft': case 'a': case 'A': handleDir('left'); break;
       case 'ArrowRight': case 'd': case 'D': handleDir('right'); break;
@@ -3062,6 +3319,8 @@
     }
     if (handled) e.preventDefault();
   });
+  document.addEventListener('keyup', (e)=>{ if (DUCK_KEYS.includes(e.key)) keyDuckHeld = false; });
+  window.addEventListener('blur', ()=>{ keyDuckHeld = false; btnDuckHeld = false; padDuckHeld = false; });
 
   // ========== SWIPE / TAP ON THE SCREEN ==========
   // drag = repeated moves (one per ~28px), tap = A, fast flick down = hard drop (brick games)
@@ -3069,7 +3328,7 @@
     const STEP = 28;
     let sx=0, sy=0, ox=0, oy=0, t0=0, moved=false, tracking=false, flickedUp=false;
     screenEl.addEventListener('touchstart', e => {
-      if (!swipeOn || e.touches.length !== 1) { tracking = false; return; }
+      if (!swipeOn || e.touches.length !== 1 || (e.target && e.target.closest && e.target.closest('[data-opt], #extraPanel'))) { tracking = false; return; }
       const p = e.touches[0];
       sx = ox = p.clientX; sy = oy = p.clientY; t0 = performance.now();
       moved = false; tracking = true; flickedUp = false;

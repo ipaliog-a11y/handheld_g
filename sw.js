@@ -1,4 +1,4 @@
-const CACHE_NAME = 'brick-game-9999-v13';
+const CACHE_NAME = 'brick-game-9999-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -28,15 +28,33 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  // Cache the VT323 web font on first load so it also works offline
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+  // Cache-first for immutable web fonts
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((res) => {
-      if (isFont && res.ok) {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-      }
-      return res;
-    }))
-  );
+  if (isFont) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return res;
+      }))
+    );
+    return;
+  }
+
+  // Network-first with cache fallback for same-origin app assets so updates apply immediately
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      fetch(event.request).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return res;
+      }).catch(() => caches.match(event.request))
+    );
+  }
 });
