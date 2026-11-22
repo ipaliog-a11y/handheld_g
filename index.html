@@ -295,6 +295,7 @@
 
   // ========== AUDIO & SETTINGS ==========
   let soundOn    = store.get('bg_sound', '1') !== '0';
+  let musicOn    = store.get('bg_music', '1') !== '0';
   let bigMode    = store.get('bg_big', '0') === '1';    // 3 big buttons ↓◀▶, default OFF
   let ghostOn    = store.get('bg_ghost', '1') !== '0';  // brick-drop landing preview
   let holdRepeat = store.get('bg_hold', '1') !== '0';   // classic hold-to-repeat
@@ -304,13 +305,20 @@
   let lang       = store.get('bg_lang', 'en');          // 'en' | 'el'
   const AC = window.AudioContext || window.webkitAudioContext;
   let audioCtx = null;
-  function ensureAudio(){
+  function ensureAudio(syncBgm){
     if (!audioCtx && AC) { try { audioCtx = new AC(); } catch(e){ audioCtx = null; } }
-    if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch(e){} }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try {
+        const p = audioCtx.resume();
+        if (syncBgm && p && p.then) p.then(() => { if (typeof bgmSync === 'function') bgmSync(); }).catch(()=>{});
+      } catch(e){}
+    } else if (syncBgm && audioCtx && audioCtx.state === 'running' && typeof bgmSync === 'function') {
+      bgmSync();
+    }
     return audioCtx;
   }
   // Browsers start audio suspended until a user gesture; create/resume on first interaction
-  ['touchstart','pointerdown','keydown'].forEach(ev => document.addEventListener(ev, ensureAudio, {capture:true, passive:true}));
+  ['touchstart','pointerdown','keydown'].forEach(ev => document.addEventListener(ev, () => ensureAudio(true), {capture:true, passive:true}));
 
   // ===== i18n =====
   const I18N = {
@@ -332,6 +340,7 @@
       swipe: 'SWIPE',
       vibrate: 'BUZZ',
       sound: 'SOUND',
+      music: 'MUSIC',
       lang: 'LANG',
       select: '▲▼ select',
       change: '◀▶ change',
@@ -391,6 +400,7 @@
       swipe: 'ΣΥΡΣΙΜΟ',
       vibrate: 'ΔΟΝΗΣΗ',
       sound: 'ΗΧΟΣ',
+      music: 'ΜΟΥΣΙΚΗ',
       lang: 'ΓΛΩΣΣΑ',
       select: '▲▼ επιλογή',
       change: '◀▶ αλλαγή',
@@ -634,6 +644,385 @@
     }
   }
 
+  // ========== GAME BOY DMG-01 4-CHANNEL BGM SEQUENCER ==========
+  // Authentic 4-channel chiptune engine: Pulse 1 (lead), Pulse 2 (harmony/arp),
+  // Channel 3 (4-bit stepped wave bass), and Channel 4 (LFSR noise + DMG kick).
+  const BGM_SEMI = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+  function bgmNoteFreq(tok){
+    const m = /^([A-G])([#b]?)([1-7])$/.exec(tok);
+    if (!m) return 0;
+    let semi = BGM_SEMI[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+    const midi = (parseInt(m[3], 10) + 1) * 12 + semi;
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+  function bgmCompileVoice(str){
+    const toks = str.trim().split(/\s+/);
+    const out = new Array(toks.length).fill(null);
+    for (let i = 0; i < toks.length; i++){
+      const tok = toks[i];
+      if (tok === '.' || tok === '-') continue;
+      const f = bgmNoteFreq(tok);
+      if (!f) continue;
+      let len = 1;
+      while (i + len < toks.length && toks[i + len] === '-') len++;
+      out[i] = { f, len };
+    }
+    return out;
+  }
+  function bgmCompileDrums(str){
+    return str.trim().split(/\s+/).map(tok => tok === '.' ? '' : tok);
+  }
+  // 6 original/public-domain Game Boy-era tracks (64 eighth-note steps = 8 bars each)
+  const BGM_TRACKS = {
+    // A, B, I, K: Classic 1861 Korobeiniki folk puzzle theme in A minor
+    block: {
+      bpm: 148, d1: 0.25, d2: 0.125, vol: 0.85,
+      p1: bgmCompileVoice(
+        'E5 - B4 C5 D5 - C5 B4  A4 - A4 C5 E5 - D5 C5 ' +
+        'B4 - B4 C5 D5 - E5 -  C5 - A4 - A4 - . . ' +
+        '. D5 - F5 A5 - G5 F5  E5 - - C5 E5 - D5 C5 ' +
+        'B4 - B4 C5 D5 - E5 -  C5 - A4 - A4 - . .'
+      ),
+      p2: bgmCompileVoice(
+        'C5 - G#4 A4 B4 - A4 G#4  E4 - E4 A4 C5 - B4 A4 ' +
+        'G#4 - G#4 A4 B4 - G#4 -  A4 - E4 - E4 - . . ' +
+        '. A4 - D5 F5 - E5 D5  C5 - - A4 C5 - B4 A4 ' +
+        'G#4 - G#4 A4 B4 - G#4 -  A4 - E4 - E4 - . .'
+      ),
+      wave: bgmCompileVoice(
+        'E3 E4 E3 E4 E3 E4 E3 E4  A2 A3 A2 A3 A2 A3 A2 A3 ' +
+        'G#2 G#3 E3 G#3 B2 E3 G#3 E3  A2 A3 A2 A3 A2 B2 C3 D3 ' +
+        'D3 D4 D3 D4 D3 D4 D3 D4  C3 C4 C3 C4 C3 C4 C3 C4 ' +
+        'E3 E4 E3 E4 G#2 B2 E3 G#3  A2 A3 A2 A3 A2 . . .'
+      ),
+      drums: bgmCompileDrums(
+        'K H S H K H S H  K H S H K H S H ' +
+        'K H S H K H S H  K H S H K K S O ' +
+        'K H S H K H S H  K H S H K H S H ' +
+        'K H S H K H S H  K H S H K S K S'
+      )
+    },
+    // C, J, P: High-speed highway chiptune in E minor
+    turbo: {
+      bpm: 164, d1: 0.25, d2: 0.125, vol: 0.85,
+      p1: bgmCompileVoice(
+        'E5 . G5 . B5 - A5 G5  F#5 . D5 . A5 - G5 F#5 ' +
+        'G5 - F#5 E5 D5 - E5 G5  B5 - - - . B5 A5 G5 ' +
+        'E5 . G5 . B5 - D6 B5  C6 - B5 A5 G5 - E5 G5 ' +
+        'A5 - G5 F#5 B5 - A5 F#5  E5 - - - . . . .'
+      ),
+      p2: bgmCompileVoice(
+        'E4 B4 E5 B4 E4 B4 E5 B4  D4 A4 D5 A4 D4 A4 D5 A4 ' +
+        'C4 G4 C5 G4 B3 F#4 B4 F#4  B3 F#4 B4 D#5 B4 F#4 B3 . ' +
+        'E4 B4 E5 B4 G4 B4 D5 B4  C4 G4 C5 G4 C4 G4 E5 C5 ' +
+        'D4 A4 D5 A4 B3 F#4 B4 D#5  E4 B4 E5 B4 E4 . . .'
+      ),
+      wave: bgmCompileVoice(
+        'E2 E3 E2 E3 E2 E3 G2 B2  D2 D3 D2 D3 D2 D3 F#2 A2 ' +
+        'C2 C3 C2 C3 B1 B2 B1 B2  B1 B2 B1 B2 B1 C#2 D#2 B2 ' +
+        'E2 E3 E2 E3 G2 G3 G2 G3  C2 C3 C2 C3 C2 C3 D2 E2 ' +
+        'D2 D3 D2 D3 B1 B2 B1 B2  E2 E3 E2 E3 E2 G2 B2 E3'
+      ),
+      drums: bgmCompileDrums(
+        'K H S H K K S H  K H S H K K S O ' +
+        'K H S H K K S H  K S K S K K S O ' +
+        'K H S H K K S H  K H S H K K S O ' +
+        'K H S H K K S H  K K S K S S K O'
+      )
+    },
+    // D, G, H, L: Sunny, bouncy classic handheld arcade groove in C major
+    arcade: {
+      bpm: 138, d1: 0.5, d2: 0.125, vol: 0.85,
+      p1: bgmCompileVoice(
+        'C5 . E5 . G5 - E5 C5  A4 - C5 E5 D5 - . . ' +
+        'F5 . E5 . D5 - C5 B4  C5 - E5 G5 C6 - . . ' +
+        'A5 . G5 . E5 - C5 E5  F5 - E5 D5 C5 - . . ' +
+        'D5 . E5 . F5 - A5 G5  E5 - D5 - C5 - . .'
+      ),
+      p2: bgmCompileVoice(
+        'E4 G4 C5 G4 E4 G4 C5 G4  C4 E4 A4 E4 B3 D4 G4 D4 ' +
+        'A3 C4 F4 C4 B3 D4 G4 D4  E4 G4 C5 G4 E4 G4 C5 . ' +
+        'C4 F4 A4 F4 E4 G4 C5 G4  A3 D4 F4 D4 E4 G4 C5 G4 ' +
+        'B3 D4 F4 D4 B3 D4 G4 F4  E4 G4 B4 G4 E4 . . .'
+      ),
+      wave: bgmCompileVoice(
+        'C3 . G2 . C3 . E3 .  A2 . E2 . G2 . B2 . ' +
+        'F2 . C3 . G2 . D3 .  C3 . G2 . C3 D3 E3 G3 ' +
+        'F2 . C3 . C3 . G2 .  D2 . A2 . C3 . G2 . ' +
+        'G2 . D3 . G2 . B2 .  C3 . G2 . C3 . . .'
+      ),
+      drums: bgmCompileDrums(
+        'K . H . S . H .  K . H K S . H . ' +
+        'K . H . S . H .  K . H . S . T O ' +
+        'K . H . S . H .  K . H K S . H . ' +
+        'K . H . S . H .  K . S . K T S .'
+      )
+    },
+    // E, F, M: Heroic tactical & galactic battle march in D minor
+    battle: {
+      bpm: 142, d1: 0.5, d2: 0.25, vol: 0.85,
+      p1: bgmCompileVoice(
+        'D5 - . D5 F5 . E5 .  D5 - A4 - . A4 C5 D5 ' +
+        'Bb4 - . Bb4 D5 . C5 .  A4 - - - . A4 C#5 E5 ' +
+        'F5 - . E5 D5 . C5 .  Bb4 - D5 F5 E5 - C5 A4 ' +
+        'G4 - Bb4 D5 C#5 - E5 G5  F5 - E5 - D5 - . .'
+      ),
+      p2: bgmCompileVoice(
+        'A4 - . A4 D5 . C5 .  A4 - F4 - . F4 A4 A4 ' +
+        'F4 - . F4 Bb4 . A4 .  E4 - - - . E4 A4 C#5 ' +
+        'D5 - . C5 A4 . A4 .  F4 - Bb4 D5 C5 - A4 E4 ' +
+        'D4 - G4 Bb4 A4 - C#5 E5  D5 - C#5 - A4 - . .'
+      ),
+      wave: bgmCompileVoice(
+        'D2 D3 D2 D3 D2 F2 A2 D3  D2 D3 D2 D3 D2 C2 Bb1 A1 ' +
+        'Bb1 Bb2 Bb1 Bb2 C2 C3 C2 C3  A1 A2 A1 A2 A1 B1 C#2 E2 ' +
+        'D2 D3 D2 D3 F2 F3 F2 F3  Bb1 Bb2 Bb1 Bb2 C2 C3 A1 A2 ' +
+        'G1 G2 G1 G2 A1 A2 A1 A2  D2 D3 A2 A1 D2 . . .'
+      ),
+      drums: bgmCompileDrums(
+        'K H S H K K S H  K H S K S H S H ' +
+        'K H S H K K S H  K S K S K K S O ' +
+        'K H S H K K S H  K H S H K K S H ' +
+        'K H S H K K S K  S H S K K S K O'
+      )
+    },
+    // N, O: Shimmering crystalline mystery groove in G minor
+    crystal: {
+      bpm: 132, d1: 0.25, d2: 0.125, vol: 0.85,
+      p1: bgmCompileVoice(
+        'G5 - Bb5 - D6 - C6 Bb5  A5 - F5 - . F5 G5 A5 ' +
+        'Bb5 - G5 - Eb5 - G5 Bb5  A5 - - - . . . . ' +
+        'D6 - C6 Bb5 A5 - G5 F5  Eb5 - G5 Bb5 D6 - C6 A5 ' +
+        'Bb5 - A5 G5 F#5 - A5 C6  Bb5 - A5 - G5 - . .'
+      ),
+      p2: bgmCompileVoice(
+        'G4 Bb4 D5 Bb4 G4 Bb4 D5 Bb4  F4 A4 C5 A4 F4 A4 C5 A4 ' +
+        'Eb4 G4 Bb4 G4 Eb4 G4 Bb4 G4  D4 F#4 A4 D5 C5 A4 F#4 D4 ' +
+        'G4 Bb4 D5 Bb4 C4 Eb4 G4 Eb4  Eb4 G4 Bb4 G4 F4 A4 C5 A4 ' +
+        'G4 Bb4 D5 Bb4 D4 F#4 A4 F#4  G4 Bb4 D5 Bb4 G4 . . .'
+      ),
+      wave: bgmCompileVoice(
+        'G2 . D3 . G2 . Bb2 .  F2 . C3 . F2 . A2 . ' +
+        'Eb2 . Bb2 . Eb2 . G2 .  D2 . A2 . D2 E2 F#2 A2 ' +
+        'G2 . D3 . C3 . G2 .  Eb2 . Bb2 . F2 . C3 . ' +
+        'G2 . D3 . D2 . A2 .  G2 . D3 . G2 . . .'
+      ),
+      drums: bgmCompileDrums(
+        'K . H . T . H .  K . H . S . H . ' +
+        'K . H . T . H .  K . H . S . T O ' +
+        'K . H . T . H .  K . H K S . H . ' +
+        'K . H . T . H .  K . T . S . H .'
+      )
+    },
+    // Menu / Title: Warm pocket cartridge loop in G major
+    menu: {
+      bpm: 116, d1: 0.5, d2: 0.125, vol: 0.62,
+      p1: bgmCompileVoice(
+        'G4 - B4 - D5 - B4 G4  E5 - D5 - B4 - . . ' +
+        'C5 - E5 - G5 - E5 C5  D5 - - - . . . . ' +
+        'G5 - F#5 E5 D5 - B4 G4  C5 - B4 A4 G4 - E4 . ' +
+        'A4 - C5 E5 D5 - B4 A4  G4 - - - . . . .'
+      ),
+      p2: bgmCompileVoice(
+        'B3 D4 G4 D4 B3 D4 G4 D4  G3 B3 E4 B3 G3 B3 E4 B3 ' +
+        'G3 C4 E4 C4 G3 C4 E4 C4  A3 D4 F#4 D4 A3 D4 F#4 . ' +
+        'B3 D4 G4 D4 B3 D4 F#4 D4  G3 C4 E4 C4 G3 B3 E4 B3 ' +
+        'A3 C4 E4 C4 A3 D4 F#4 D4  B3 D4 G4 D4 B3 . . .'
+      ),
+      wave: bgmCompileVoice(
+        'G2 . . . D3 . . .  E2 . . . B2 . . . ' +
+        'C2 . . . G2 . . .  D2 . . . A2 . F#2 . ' +
+        'G2 . . . B2 . . .  C2 . . . E2 . . . ' +
+        'A2 . . . D2 . . .  G2 . D2 . G2 . . .'
+      ),
+      drums: bgmCompileDrums(
+        'K . . . H . . .  K . . . H . . . ' +
+        'K . . . H . . .  K . . . H . T . ' +
+        'K . . . H . . .  K . . . H . . . ' +
+        'K . . . H . . .  K . H . . . . .'
+      )
+    }
+  };
+
+  let gbWaveBassCache = null;
+  function gbWaveBass(){
+    if (gbWaveBassCache) return gbWaveBassCache;
+    // 4-bit stepped hollow triangle/wave modeled after Game Boy DMG Channel 3 RAM
+    const n = 24;
+    const real = new Float32Array(n);
+    const imag = new Float32Array(n);
+    imag[1] = 1.0; imag[2] = 0.24; imag[3] = 0.28; imag[4] = 0.08;
+    imag[5] = 0.10; imag[7] = 0.05; imag[9] = 0.025;
+    gbWaveBassCache = audioCtx.createPeriodicWave(real, imag);
+    return gbWaveBassCache;
+  }
+
+  let bgmMaster = null;
+  let bgmFilter = null;
+  let bgmTimer = null;
+  let bgmDelayTimer = null;
+  let bgmTrackKey = null;
+  let bgmStep = 0;
+  let bgmNextTime = 0;
+  let bgmPlaying = false;
+
+  function bgmEnsureBus(){
+    if (!audioCtx) return null;
+    if (!bgmMaster){
+      bgmFilter = audioCtx.createBiquadFilter();
+      bgmFilter.type = 'lowpass';
+      bgmFilter.frequency.value = 7400; // warm DMG speaker roll-off
+      bgmMaster = audioCtx.createGain();
+      bgmMaster.gain.value = 1;
+      bgmFilter.connect(bgmMaster);
+      bgmMaster.connect(audioCtx.destination);
+    }
+    return bgmFilter;
+  }
+
+  function bgmStop(){
+    clearTimeout(bgmDelayTimer); bgmDelayTimer = null;
+    clearInterval(bgmTimer); bgmTimer = null;
+    bgmPlaying = false;
+    if (bgmMaster && audioCtx){
+      const oldGain = bgmMaster, oldFilter = bgmFilter;
+      bgmMaster = null; bgmFilter = null;
+      try {
+        const now = audioCtx.currentTime;
+        oldGain.gain.cancelScheduledValues(now);
+        oldGain.gain.setValueAtTime(Math.max(0.0001, oldGain.gain.value), now);
+        oldGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.02);
+        setTimeout(() => { try { oldFilter.disconnect(); oldGain.disconnect(); } catch(e){} }, 50);
+      } catch(e){}
+    }
+  }
+
+  function bgmScheduleNote(bus, wave, freq, t0, dur, vol, release){
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.setPeriodicWave(wave);
+    o.frequency.setValueAtTime(freq, t0);
+    const atk = Math.min(0.006, dur * 0.2);
+    const gate = Math.max(0.02, dur * (release || 0.88));
+    g.gain.setValueAtTime(0.0005, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + atk);
+    g.gain.setValueAtTime(vol * 0.88, t0 + atk + (gate - atk) * 0.45);
+    g.gain.exponentialRampToValueAtTime(0.0005, t0 + gate);
+    o.connect(g); g.connect(bus);
+    o.start(t0);
+    o.stop(t0 + gate + 0.015);
+  }
+
+  function bgmScheduleDrum(bus, hit, t0, volScale){
+    if (hit === 'K'){
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.setPeriodicWave(gbDutyWave(0.5));
+      o.frequency.setValueAtTime(145, t0);
+      o.frequency.exponentialRampToValueAtTime(42, t0 + 0.065);
+      g.gain.setValueAtTime(0.05 * volScale, t0);
+      g.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.075);
+      o.connect(g); g.connect(bus);
+      o.start(t0); o.stop(t0 + 0.085);
+    } else if (hit === 'S' || hit === 'H' || hit === 'O' || hit === 'T'){
+      const src = audioCtx.createBufferSource();
+      const isShort = hit === 'T';
+      src.buffer = gbNoiseBuffer(isShort, hit === 'S' ? 4 : isShort ? 6 : 2);
+      src.loop = true;
+      const flt = audioCtx.createBiquadFilter();
+      flt.type = (hit === 'H' || hit === 'O') ? 'highpass' : 'lowpass';
+      flt.frequency.setValueAtTime(hit === 'S' ? 3200 : hit === 'T' ? 1800 : 5200, t0);
+      const dur = hit === 'S' ? 0.072 : hit === 'O' ? 0.085 : hit === 'T' ? 0.055 : 0.026;
+      const vol = (hit === 'S' ? 0.032 : hit === 'O' ? 0.02 : hit === 'T' ? 0.026 : 0.015) * volScale;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.0005, t0 + dur);
+      src.connect(flt); flt.connect(g); g.connect(bus);
+      src.start(t0); src.stop(t0 + dur + 0.015);
+    }
+  }
+
+  function bgmStepDur(tr){
+    // Subtle tempo lift with game level while playing (authentic handheld urgency)
+    const lvl = (state === 'play' && G && G.level) ? Math.max(1, G.level) : 1;
+    const mult = state === 'play' ? 1 + Math.min(0.18, (lvl - 1) * 0.022) : 1;
+    return 60 / (tr.bpm * mult) / 2; // eighth-note step duration
+  }
+
+  function bgmTick(){
+    if (!bgmPlaying || !soundOn || !musicOn || document.hidden || !audioCtx || audioCtx.state !== 'running') return;
+    const tr = BGM_TRACKS[bgmTrackKey];
+    if (!tr) return;
+    const bus = bgmEnsureBus();
+    if (!bus) return;
+    const now = audioCtx.currentTime;
+    if (bgmNextTime < now - 0.15) bgmNextTime = now + 0.02;
+    const ahead = now + 0.16;
+    const len = tr.p1.length;
+    const v = tr.vol || 0.85;
+    while (bgmNextTime < ahead){
+      const sd = bgmStepDur(tr);
+      const i = bgmStep % len;
+      const n1 = tr.p1[i];
+      const n2 = tr.p2[i];
+      const nw = tr.wave[i];
+      const dr = tr.drums[i];
+      try {
+        if (n1) bgmScheduleNote(bus, gbDutyWave(tr.d1), n1.f, bgmNextTime, sd * n1.len, 0.034 * v, n1.len > 1 ? 0.94 : 0.82);
+        if (n2) bgmScheduleNote(bus, gbDutyWave(tr.d2), n2.f, bgmNextTime, sd * n2.len, 0.020 * v, 0.78);
+        if (nw) bgmScheduleNote(bus, gbWaveBass(), nw.f, bgmNextTime, sd * nw.len, 0.048 * v, 0.86);
+        if (dr) bgmScheduleDrum(bus, dr, bgmNextTime, v);
+      } catch(e){}
+      bgmStep = (bgmStep + 1) % len;
+      bgmNextTime += sd;
+    }
+  }
+
+  function bgmPlay(trackKey, delayMs=0, resumeStep=false){
+    if (!trackKey || !BGM_TRACKS[trackKey]){ bgmStop(); return; }
+    if (!soundOn || !musicOn || document.hidden){
+      bgmTrackKey = trackKey;
+      if (!resumeStep) bgmStep = 0;
+      bgmStop();
+      return;
+    }
+    if (bgmPlaying && bgmTrackKey === trackKey && !delayMs) return;
+    const prevStep = resumeStep && bgmTrackKey === trackKey ? bgmStep : 0;
+    bgmStop();
+    bgmTrackKey = trackKey;
+    bgmStep = prevStep;
+    const launch = () => {
+      bgmDelayTimer = null;
+      if (!soundOn || !musicOn || document.hidden) return;
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      bgmEnsureBus();
+      bgmPlaying = true;
+      bgmNextTime = audioCtx.currentTime + 0.04;
+      bgmTick();
+      bgmTimer = setInterval(bgmTick, 50);
+    };
+    if (delayMs > 0) bgmDelayTimer = setTimeout(launch, delayMs);
+    else launch();
+  }
+
+  function bgmDesiredTrack(){
+    if (state === 'play' && currentMode) return currentMode.music || 'arcade';
+    if (state === 'menu' || state === 'level' || state === 'stats' || state === 'awards') return 'menu';
+    if (state === 'settings' && prevStateBeforeSettings !== 'pause' && prevStateBeforeSettings !== 'over') return 'menu';
+    return null;
+  }
+
+  function bgmSync(delayMs=0, resumeStep=false){
+    const want = bgmDesiredTrack();
+    if (!want || !soundOn || !musicOn || document.hidden){
+      if (!want) bgmTrackKey = null;
+      bgmStop();
+      return;
+    }
+    if (bgmPlaying && bgmTrackKey === want) return;
+    bgmPlay(want, delayMs, resumeStep);
+  }
+
   // ========== CANVAS / RENDER ==========
   const COLS = 10, ROWS = 20;
   const boardCanvas = document.getElementById('board');
@@ -823,37 +1212,37 @@
   // ========== GAME STATE MACHINE ==========
   // icon: 6x5 pixel art for the MODE panel; btn: captions for A/B while playing
   const MODES = [
-    { id:'A', name:'BRICK',   make:()=>makeBricks(false), btn:['b_rot','b_drop'], flick:true,
+    { id:'A', name:'BRICK',   make:()=>makeBricks(false), btn:['b_rot','b_drop'], flick:true, music:'block',
       desc:{en:'Falling bricks', el:'Πέφτουν τουβλα'}, icon:['......','..#...','.###..','......','##.###'] },
-    { id:'B', name:'BRICK B', make:()=>makeBricks(true), btn:['b_rot','b_drop'], flick:true,
+    { id:'B', name:'BRICK B', make:()=>makeBricks(true), btn:['b_rot','b_drop'], flick:true, music:'block',
       desc:{en:'Bricks+garbage', el:'Τουβλα+σκουπ.'}, icon:['..#...','.###..','......','#.##.#','##.###'] },
-    { id:'C', name:'RACE',    make:()=>makeRace(), btn:['b_none','b_none'],
+    { id:'C', name:'RACE',    make:()=>makeRace(), btn:['b_none','b_none'], music:'turbo',
       desc:{en:'Dodge the cars', el:'Απόφυγε αμάξια'}, icon:['.#..#.','###...','.#..#.','...###','.#..#.'] },
-    { id:'D', name:'SNAKE',   make:()=>makeSnake(), btn:['b_none','b_none'], fourWay:true,
+    { id:'D', name:'SNAKE',   make:()=>makeSnake(), btn:['b_none','b_none'], fourWay:true, music:'arcade',
       desc:{en:'Eat & grow', el:'Φάε & μεγάλωσε'}, icon:['......','.####.','.#....','.#..#.','.#....'] },
-    { id:'E', name:'SHOOT',   make:()=>makeShoot(), btn:['b_fire','b_fire'],
+    { id:'E', name:'SHOOT',   make:()=>makeShoot(), btn:['b_fire','b_fire'], music:'battle',
       desc:{en:'Clear the blocks', el:'Καθάρισε τουβλα'}, icon:['#.##.#','.#..#.','......','..#...','.###..'] },
-    { id:'F', name:'TANK',    make:()=>makeTank(), btn:['b_fire','b_fire'], fourWay:true,
+    { id:'F', name:'TANK',    make:()=>makeTank(), btn:['b_fire','b_fire'], fourWay:true, music:'battle',
       desc:{en:'Tank battle', el:'Μάχη τανκς'}, icon:['..#...','.###..','.#.#..','.###..','......'] },
-    { id:'G', name:'BREAK',   make:()=>makeBreak(), btn:['b_go','b_go'],
+    { id:'G', name:'BREAK',   make:()=>makeBreak(), btn:['b_go','b_go'], music:'arcade',
       desc:{en:'Brick breaker', el:'Σπάσε τουβλα'}, icon:['######','#.##.#','......','..#...','.###..'] },
-    { id:'H', name:'FROG',    make:()=>makeFrog(), btn:['b_jump','b_jump'], fourWay:true,
+    { id:'H', name:'FROG',    make:()=>makeFrog(), btn:['b_jump','b_jump'], fourWay:true, music:'arcade',
       desc:{en:'Cross road+river', el:'Περάσε δρόμο'}, icon:['#.#.#.','......','###.##','..#...','......'] },
-    { id:'I', name:'STACK',   make:()=>makeStack(), btn:['b_stop','b_stop'],
+    { id:'I', name:'STACK',   make:()=>makeStack(), btn:['b_stop','b_stop'], music:'block',
       desc:{en:'Stack the rows', el:'Στοίβαξε'}, icon:['..##..','..##..','.###..','.####.','######'] },
-    { id:'J', name:'RUNNER',  make:()=>makeRunner(), btn:['b_jump','b_duck'],
+    { id:'J', name:'RUNNER',  make:()=>makeRunner(), btn:['b_jump','b_duck'], music:'turbo',
       desc:{en:'Jump & duck', el:'Άλμα & σκύψιμο'}, icon:['......','.#....','.#..#.','.#..#.','######'] },
-    { id:'K', name:'FILL',    make:()=>makeFill(), btn:['b_fire','b_fire'],
+    { id:'K', name:'FILL',    make:()=>makeFill(), btn:['b_fire','b_fire'], music:'block',
       desc:{en:'Fill the rows', el:'Γέμισε γραμμές'}, icon:['######','##.###','......','..#...','.###..'] },
-    { id:'L', name:'PONG',    make:()=>makePong(), btn:['b_none','b_none'],
+    { id:'L', name:'PONG',    make:()=>makePong(), btn:['b_none','b_none'], music:'arcade',
       desc:{en:'Beat the CPU', el:'Νίκα τον CPU'}, icon:['.###..','......','...#..','......','..###.'] },
-    { id:'M', name:'INVADE',  make:()=>makeInvaders(), btn:['b_fire','b_fire'],
+    { id:'M', name:'INVADE',  make:()=>makeInvaders(), btn:['b_fire','b_fire'], music:'battle',
       desc:{en:'Stop the aliens', el:'Σταμάτα εξωγ.'}, icon:['#.#.#.','.#.#.#','......','..#...','.###..'] },
-    { id:'N', name:'GEMS',    make:()=>makeGems(), btn:['b_swap','b_drop'], flick:true,
+    { id:'N', name:'GEMS',    make:()=>makeGems(), btn:['b_swap','b_drop'], flick:true, music:'crystal',
       desc:{en:'Match 3 gems', el:'Ταίριαξε 3'}, icon:['...#..','...#..','...#..','#..##.','##.###'] },
-    { id:'O', name:'MAZE',    make:()=>makeMaze(), btn:['b_none','b_none'], fourWay:true,
+    { id:'O', name:'MAZE',    make:()=>makeMaze(), btn:['b_none','b_none'], fourWay:true, music:'crystal',
       desc:{en:'Eat all dots', el:'Φάε τις τελείες'}, icon:['######','#....#','#.##.#','#..#.#','######'] },
-    { id:'P', name:'RALLY',   make:()=>makeRally(), btn:['b_turbo','b_turbo'],
+    { id:'P', name:'RALLY',   make:()=>makeRally(), btn:['b_turbo','b_turbo'], music:'turbo',
       desc:{en:'Race with fuel', el:'Αγώνας+καύσιμα'}, icon:['..#...','.###..','..#...','.#.#..','......'] },
   ];
   const MODES_BY_ID = Object.fromEntries(MODES.map(m => [m.id, m]));
@@ -999,6 +1388,7 @@
   function endGame(g, titleKey='gameOver'){
     g.gameOver = true;
     state = 'over';
+    bgmStop();
     sfx('die');
     const key = recordKey();
     store.setJSON('bg_top_' + key, loadTop(key));  // pin the table (migrating an old high score) before saveHi()
@@ -1239,6 +1629,7 @@
     { key: 'swipe',   get: () => swipeOn,    set: v => { swipeOn = v; store.set('bg_swipe', v?'1':'0'); } },
     { key: 'vibrate', get: () => vibrateOn,  set: v => { vibrateOn = v; store.set('bg_vibrate', v?'1':'0'); if (v) buzz(40); } },
     { key: 'sound',   get: () => soundOn,    set: v => { setSound(v); } },
+    { key: 'music',   get: () => musicOn,    set: v => { setMusic(v); } },
     { key: 'lang',    get: () => lang === 'el', show: () => lang === 'el' ? 'EL' : 'EN',
       set: v => { lang = v ? 'el' : 'en'; store.set('bg_lang', lang); applyLanguage(); } },
   ];
@@ -1255,7 +1646,7 @@
     lines.push(' ' + t('select'));
     lines.push(' ' + t('change'));
     lines.push(' ' + t('back'));
-    drawLines(lines, { size: 1.0, step: 0.95, top: 0.6, left: 0.3, sel: 2 + settingsIndex });
+    drawLines(lines, { size: 1.0, step: 0.95, top: 0.5, left: 0.3, sel: 2 + settingsIndex });
     nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
     setExtra(null);
     updateHUD(0, 0, 0, t('set'), '—');
@@ -1265,6 +1656,12 @@
     soundOn = v;
     store.set('bg_sound', v ? '1' : '0');
     document.getElementById('btnSound').textContent = v ? t('soundBtn') : t('muteBtn');
+    if (v) ensureAudio(true); else bgmStop();
+  }
+  function setMusic(v){
+    musicOn = v;
+    store.set('bg_music', v ? '1' : '0');
+    if (v) ensureAudio(true); else bgmStop();
   }
 
   // ========== PAUSE MENU ==========
@@ -3109,7 +3506,7 @@
     else if (kind === 'awards'){ state = 'awards'; drawAwards(); }
     else { state = 'level'; drawLevelSelect(); }
   }
-  function backToMenu(){ state = 'menu'; sfx('select'); drawMenu(); }
+  function backToMenu(){ state = 'menu'; sfx('select'); drawMenu(); bgmSync(); }
   function handleA(){
     if (state==='menu'){ openMenuItem(); return; }
     if (state==='stats' || state==='awards'){ backToMenu(); return; }
@@ -3133,11 +3530,13 @@
     if (state==='play'){
       state='pause';
       pauseIndex = 0;
+      bgmStop();
       applyBigLayout();
       showPauseMenu();
     } else if (state==='pause'){
       state='play'; hideOverlay(); lastTs=performance.now();
       applyBigLayout();
+      bgmSync(80, true);
     } else if (state==='menu'){
       openMenuItem();
       applyBigLayout();
@@ -3182,7 +3581,9 @@
     state='play';
     hideOverlay();
     applyBigLayout();
+    bgmStop();
     sfx('start');
+    bgmPlay(currentMode.music || 'arcade', 380, false);
     lastTs = performance.now();
   }
   let hudSnapshot = null;
@@ -3227,6 +3628,7 @@
     } else state = 'menu';
     applyBigLayout();
     redrawScreen();
+    bgmSync();
   }
   function doReset(){
     if (G && currentMode && !G.gameOver && !playingDaily) saveHi(currentMode.id, G.score);
@@ -3242,6 +3644,7 @@
     hideOverlay();
     applyBigLayout();
     drawMenu();
+    bgmSync();
   }
 
   // bind buttons
@@ -3283,7 +3686,7 @@
         else { menuIndex = target; sfx('select'); drawMenu(); }
       }
     } else if (state === 'settings'){
-      const idx = Math.floor((row - 0.6) / 0.95) - 2;
+      const idx = Math.floor((row - 0.5) / 0.95) - 2;
       if (idx >= 0 && idx < SETTINGS_OPTS.length){
         settingsIndex = idx;
         const opt = SETTINGS_OPTS[settingsIndex];
@@ -3368,18 +3771,23 @@
   window.addEventListener('orientationchange', ()=>setTimeout(resizeCanvas,200));
   // auto-pause when switching apps / tabs
   document.addEventListener('visibilitychange', ()=>{
-    if (!document.hidden) return;
-    if (G && currentMode && !G.gameOver && !playingDaily) saveHi(currentMode.id, G.score);
-    saveStats();
-    if (state==='play') togglePause();
+    if (document.hidden){
+      bgmStop();
+      if (G && currentMode && !G.gameOver && !playingDaily) saveHi(currentMode.id, G.score);
+      saveStats();
+      if (state==='play') togglePause();
+    } else {
+      bgmSync();
+    }
   });
 
   // test hook for the automated tests (only with ?test in the URL)
   if (/[?&]test\b/.test(location.search)) window.__T = {
     get G(){ return G; }, get state(){ return state; },
     get menuIndex(){ return menuIndex; }, set menuIndex(v){ menuIndex = v; },
+    get bgmTrack(){ return bgmTrackKey; },
     startMode(i){ menuIndex = i + 1; startPlay(); }, startDaily(){ menuIndex = 0; startPlay(); },
-    MAZE, MODES, stats, unlocked, dailyInfo, loadTop, sfx, isNativeRandom: () => Math.random === nativeRandom,
+    MAZE, MODES, BGM_TRACKS, stats, unlocked, dailyInfo, loadTop, sfx, isNativeRandom: () => Math.random === nativeRandom,
   };
 
   // boot
