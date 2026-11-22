@@ -4,9 +4,16 @@
   "description": "Brick Game 9999 in 1 - handheld LCD multi-game PWA",
   "type": "module",
   "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node --check server.js",
+    "lint": "node --check server.js",
     "test": "node tests/run.mjs"
   },
   "devDependencies": {
     "playwright": "1.56.1"
+  },
+  "dependencies": {
+    "express": "^5.3.0"
   }
 }
