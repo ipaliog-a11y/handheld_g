@@ -1,4 +1,4 @@
-const CACHE_NAME = 'brick-game-9999-v15';
+const CACHE_NAME = 'dotbox-v21';
 const ASSETS = [
   './',
   './index.html',

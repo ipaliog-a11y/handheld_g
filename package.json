@@ -1,7 +1,7 @@
 {
-  "name": "brick-game-9999-in-1",
+  "name": "dotbox-handheld",
   "private": true,
-  "description": "Brick Game 9999 in 1 - handheld LCD multi-game PWA",
+  "description": "DOTBOX - pocket LCD 20-in-1 handheld PWA",
   "type": "module",
   "scripts": {
     "dev": "node server.js",

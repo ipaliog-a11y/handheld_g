@@ -70,6 +70,18 @@ async function swipe(p, x0, y0, x1, y1, ms = 200, steps = 8){
   const names = ['move','rotate','drop','lock','line','score','die','level','select','start','eat','shoot','hit','jump'];
   await ev(p, list => { for (const n of list) __T.sfx(n); __T.sfx('line'); __T.sfx('level'); __T.sfx('die'); }, names);
   ok('game boy sfx play without errors', p.errors.length === 0);
+  await ev(p, () => __T.triggerSaver());
+  ok('screen saver activates on main menu', await ev(p, () => __T.saverActive === true));
+  await p.keyboard.press('ArrowDown');
+  ok('any key wakes screen saver back to menu without skipping item', await ev(p, () => !__T.saverActive && __T.state === 'menu' && __T.menuIndex === 1));
+  ok('battery indicator renders low and charging states', await ev(p, () => {
+    __T.renderBattery(0.15, false);
+    const el = document.getElementById('battStatus'), txt = document.getElementById('battText');
+    const lowOk = !el.hidden && el.classList.contains('low') && txt.textContent === '15%';
+    __T.renderBattery(0.82, true);
+    const chgOk = !el.classList.contains('low') && txt.textContent === '+82%';
+    return lowOk && chgOk;
+  }));
   await p.context().close();
 }
 
@@ -78,7 +90,7 @@ async function swipe(p, x0, y0, x1, y1, ms = 200, steps = 8){
   const p = await page();
   const keys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','z','x'];
   const n = await ev(p, () => __T.MODES.length);
-  ok('16 games', n === 16);
+  ok('20 games', n === 20);
   for (let i = 0; i < n; i++){
     await startMode(p, i);
     for (let k = 0; k < 35; k++){ await p.keyboard.press(keys[Math.floor(Math.random()*keys.length)]); await p.waitForTimeout(25); }
@@ -137,9 +149,13 @@ async function swipe(p, x0, y0, x1, y1, ms = 200, steps = 8){
   ok('settings open from the pause menu', await state(p) === 'settings');
   for (let i = 0; i < 3; i++) await p.keyboard.press('ArrowDown');
   await p.keyboard.press('ArrowRight');
+  // cycle BUZZ (index 5) from default 'med' to 'high'
+  await p.keyboard.press('ArrowDown'); await p.keyboard.press('ArrowDown');
+  await p.keyboard.press('ArrowRight');
   await p.keyboard.press('Enter');
   ok('closing settings returns to the paused game', await state(p) === 'pause' && await ev(p, () => __T.G.score) === 1234);
   ok('theme change is saved', await ev(p, () => localStorage.getItem('bg_theme')) === 'green');
+  ok('vibration intensity change is saved', await ev(p, () => localStorage.getItem('bg_vibrate')) === 'high');
   ok('no page errors (bricks)', p.errors.length === 0);
   await p.context().close();
 }
@@ -245,6 +261,24 @@ async function swipe(p, x0, y0, x1, y1, ms = 200, steps = 8){
   ok('rally: a car in your lane crashes', await ev(p, () => { const G = __T.G; G.cars = [{lane: G.lane, y: 15}]; G.update(16); return G.gameOver; }));
   await startMode(p, 15);
   ok('rally: running out of fuel ends the game', await ev(p, () => { const G = __T.G; G.fuel = 0.01; G.cars = []; G.update(50); return G.gameOver; }));
+  // climb
+  await startMode(p, 16);
+  ok('climb: falling below screen ends the game', await ev(p, () => { const G = __T.G; G.py = 22; G.update(16); return G.gameOver; }));
+  // digger
+  await startMode(p, 17);
+  ok('digger: digging dirt clears cell and scores', await ev(p, () => {
+    const G = __T.G; G.grid[2][6] = 1; G.px = 5; G.py = 2; const s = G.score; G.onRight();
+    return G.grid[2][6] === 0 && G.score === s + 2; }));
+  // boxes
+  await startMode(p, 18);
+  ok('boxes: undo restores previous player position', await ev(p, () => {
+    const G = __T.G; const x0 = G.px, y0 = G.py; G.onLeft(); const moved = G.px !== x0 || G.py !== y0;
+    G.onA(); return moved && G.px === x0 && G.py === y0; }));
+  // memory
+  await startMode(p, 19);
+  ok('memory: correct input advances sequence position', await ev(p, () => {
+    const G = __T.G; G.phase = 'input'; G.pos = 0; const first = G.seq[0]; G.press(first);
+    return G.pos === 1 && G.score > 0; }));
   ok('no page errors (rules)', p.errors.length === 0);
   await p.context().close();
 }
